@@ -1001,6 +1001,15 @@ main {
   border-radius: var(--radius);
 }
 
+.api-message .error-icon {
+  width: 52px;
+  height: 52px;
+  color: var(--text-dim);
+  opacity: 0.55;
+  margin: 0 auto 0.8rem;
+  display: block;
+}
+
 .api-message h3 {
   color: var(--text);
   font-weight: 700;

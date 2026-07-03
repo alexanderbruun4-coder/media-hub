@@ -603,6 +603,11 @@ async function loadSection({ reset = false } = {}) {
     if (currentSection !== sectionKey) return;
     if (reset || state.items.length === 0) {
       showApiMessage(`
+        <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 3 2.5 19.5h19L12 3Z" stroke-linejoin="round"/>
+          <path d="M12 9.5v4.5"/><circle cx="12" cy="16.8" r="0.4" fill="currentColor"/>
+        </svg>
         <h3>Couldn't load ${cfg.noun}</h3>
         <p>${escapeHtml(err.message)} — check your internet connection
         and API key, then try again.</p>
