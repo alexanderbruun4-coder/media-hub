@@ -27,6 +27,7 @@
 
   /* Brand accent (crimson, streaming identity) */
   --accent: #e50914;
+  --accent-bright: #ff5b64; /* readable accent for text on dark */
   --accent-soft: rgba(229, 9, 20, 0.14);
   --accent-glow: rgba(229, 9, 20, 0.35);
   --accent-gradient: linear-gradient(135deg, #ff2d3f 0%, #c4080f 100%);
@@ -423,7 +424,7 @@ main {
 
 .hero-label {
   display: inline-block;
-  color: #ff5b64;
+  color: var(--accent-bright);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.24em;
@@ -652,7 +653,7 @@ main {
 }
 
 .see-all:hover {
-  color: #ff5b64;
+  color: var(--accent-bright);
 }
 
 .see-all span {
@@ -735,6 +736,20 @@ main {
 @media (pointer: coarse) {
   .row-arrow {
     display: none; /* touch scrolls natively */
+  }
+
+  /* Touch targets ≥44px on touch devices (Apple HIG / Material) */
+  .fav-btn,
+  .modal-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Dots stay visually small but get a 24px hit area */
+  .hero-dot {
+    box-sizing: content-box;
+    padding: 8px;
+    background-clip: content-box;
   }
 }
 
@@ -1033,7 +1048,7 @@ main {
 }
 
 .api-message a {
-  color: #ff5b64;
+  color: var(--accent-bright);
 }
 
 .loading-pulse {
@@ -1503,7 +1518,7 @@ main {
 
 .sort-label {
   color: var(--text-dim);
-  font-size: 0.74rem;
+  font-size: 0.72rem; /* matches .modal-stores-label / .hero-label scale */
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
