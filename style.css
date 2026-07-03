@@ -652,8 +652,9 @@ main {
   transform: translateY(-2px);
 }
 
-/* Steam gets the accent treatment (preferred store) */
-.store-btn.steam {
+/* Primary link gets the accent treatment (Steam for games,
+   TMDB page for movies/TV) */
+.store-btn.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;

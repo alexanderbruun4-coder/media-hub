@@ -1,78 +1,154 @@
 /* ============================================================
    SCRIPT.JS — MediaHub logic
 
-   Two kinds of sections:
-   - STATIC  (Movies, TV Shows): rendered from MEDIA_DATA in data.js
-   - API     (Games): loaded live from the RAWG database
-     (https://rawg.io/apidocs) with pagination, genre filters,
-     full-database search, and store links.
+   All three sections load live from real databases:
+   - Movies    → TMDB (https://www.themoviedb.org)
+   - TV Shows  → TMDB
+   - Games     → RAWG (https://rawg.io)
+
+   One shared engine handles fetching, pagination ("Load More"),
+   genre filters, search, caching, and rendering for every
+   section — see API_SECTIONS below to tweak categories.
    ============================================================ */
 
 /* ============================================================
-   ▼▼▼ CONFIG — PASTE YOUR RAWG API KEY HERE ▼▼▼
-   Get a free key at https://rawg.io/apidocs (sign up → the key
-   appears on your dashboard). Replace the placeholder below,
-   keeping the quotes:
+   ▼▼▼ CONFIG — API KEYS ▼▼▼
+
+   RAWG (games): free key from https://rawg.io/apidocs
+   TMDB (movies + TV): free key from https://www.themoviedb.org
+     → create an account → Settings → API → request a
+       developer key → copy the "API Key" (v3 auth) value.
    ============================================================ */
 const RAWG_API_KEY = "65c61b552b7f4370ac9920ff91985038";
+const TMDB_API_KEY = "PASTE_YOUR_TMDB_KEY_HERE";
 /* ============================================================
    ▲▲▲ CONFIG END ▲▲▲
    ============================================================ */
 
 const RAWG_BASE = "https://api.rawg.io/api";
-const GAMES_PAGE_SIZE = 40; // games fetched per "Load More" click
-const GAME_FALLBACK_IMG = "https://placehold.co/600x400/141926/8b94a7?text=No+Image";
+const TMDB_BASE = "https://api.themoviedb.org/3";
+const TMDB_IMG = "https://image.tmdb.org/t/p"; // + /w342 (card), /w500 (modal), /w1280 (hero)
+const PAGE_SIZE = 40; // items added per "Load More" (TMDB pages are 20, so we fetch two)
+const FALLBACK_IMG = "https://placehold.co/400x600/141926/8b94a7?text=No+Image";
 
-/* Filter buttons for the Games section, mapped to RAWG query params.
-   To add one: find the genre slug at https://api.rawg.io/api/genres
-   (or use a tag, like Horror below) and add a row here. */
-const RAWG_CATEGORIES = [
-  { label: "All",        params: {} },
-  { label: "Action",     params: { genres: "action" } },
-  { label: "RPG",        params: { genres: "role-playing-games-rpg" } },
-  { label: "Shooter",    params: { genres: "shooter" } },
-  { label: "Simulation", params: { genres: "simulation" } },
-  { label: "Sports",     params: { genres: "sports" } },
-  { label: "Strategy",   params: { genres: "strategy" } },
-  { label: "Indie",      params: { genres: "indie" } },
-  { label: "Horror",     params: { tags: "horror" } }, // horror is a RAWG tag, not a genre
-];
+/* TMDB genre ids are fixed constants — used to translate each
+   item's genre_ids into a display name for the card tag. */
+const TMDB_GENRES = {
+  movie: {
+    28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
+    99: "Documentary", 18: "Drama", 10751: "Family", 14: "Fantasy", 36: "History",
+    27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance",
+    878: "Sci-Fi", 10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western",
+  },
+  tv: {
+    10759: "Action & Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
+    99: "Documentary", 18: "Drama", 10751: "Family", 10762: "Kids", 9648: "Mystery",
+    10763: "News", 10764: "Reality", 10765: "Sci-Fi & Fantasy", 10766: "Soap",
+    10767: "Talk", 10768: "War & Politics", 37: "Western",
+  },
+};
 
 /* RAWG store ids → display names (fallback when the game object
    doesn't carry the store name itself). */
 const STORE_NAMES = {
-  1: "Steam",
-  2: "Xbox Store",
-  3: "PlayStation Store",
-  4: "App Store",
-  5: "GOG",
-  6: "Nintendo eShop",
-  7: "Xbox 360 Store",
-  8: "Google Play",
-  9: "itch.io",
-  11: "Epic Games",
+  1: "Steam", 2: "Xbox Store", 3: "PlayStation Store", 4: "App Store",
+  5: "GOG", 6: "Nintendo eShop", 7: "Xbox 360 Store", 8: "Google Play",
+  9: "itch.io", 11: "Epic Games",
+};
+
+/* ============================================================
+   SECTION CONFIG — the one place to edit sections/categories.
+
+   Category entries:
+   - TMDB sections: { label, genreId }  (ids from TMDB_GENRES above)
+   - RAWG section:  { label, params }   (genre slugs from
+     https://api.rawg.io/api/genres, or a tag like Horror)
+
+   To add a nav section: add a key here + a nav link in index.html
+   with a matching data-section attribute.
+   ============================================================ */
+const API_SECTIONS = {
+  movies: {
+    api: "tmdb",
+    tmdbType: "movie",
+    noun: "movies",
+    heroLabel: "★ Featured Movie",
+    searchPlaceholder: "Search all movies…",
+    categories: [
+      { label: "All" },
+      { label: "Action", genreId: 28 },
+      { label: "Comedy", genreId: 35 },
+      { label: "Horror", genreId: 27 },
+      { label: "Sci-Fi", genreId: 878 },
+      { label: "Drama", genreId: 18 },
+      { label: "Animation", genreId: 16 },
+      { label: "Thriller", genreId: 53 },
+    ],
+  },
+  games: {
+    api: "rawg",
+    noun: "games",
+    heroLabel: "★ Featured Game",
+    searchPlaceholder: "Search the whole games database…",
+    categories: [
+      { label: "All", params: {} },
+      { label: "Action", params: { genres: "action" } },
+      { label: "RPG", params: { genres: "role-playing-games-rpg" } },
+      { label: "Shooter", params: { genres: "shooter" } },
+      { label: "Simulation", params: { genres: "simulation" } },
+      { label: "Sports", params: { genres: "sports" } },
+      { label: "Strategy", params: { genres: "strategy" } },
+      { label: "Indie", params: { genres: "indie" } },
+      { label: "Horror", params: { tags: "horror" } }, // horror is a RAWG tag, not a genre
+    ],
+  },
+  tvshows: {
+    api: "tmdb",
+    tmdbType: "tv",
+    noun: "TV shows",
+    heroLabel: "★ Featured TV Show",
+    searchPlaceholder: "Search all TV shows…",
+    categories: [
+      { label: "All" },
+      { label: "Drama", genreId: 18 },
+      { label: "Comedy", genreId: 35 },
+      { label: "Crime", genreId: 80 },
+      { label: "Sci-Fi & Fantasy", genreId: 10765 },
+      { label: "Animation", genreId: 16 },
+      { label: "Mystery", genreId: 9648 },
+      { label: "Reality", genreId: 10764 },
+    ],
+  },
 };
 
 // ---------- App state ----------
-let currentSection = "movies"; // "movies" | "games" | "tvshows"
-let currentCategory = "All";   // active filter button label
-let searchQuery = "";          // current navbar search text
+let currentSection = "movies";
+let currentCategory = "All";
+let searchQuery = "";
 
-// Games (RAWG) state — accumulated results for the current filter+search
-const gamesState = {
-  items: [],       // all games loaded so far for the current query
-  page: 1,
-  hasMore: false,
-  totalCount: 0,
-  loading: false,
-  hero: null,      // featured game (first result of the initial popular load)
+/* Per-section browsing state. `items` holds NORMALIZED objects (same
+   shape for every API — see the normalize* functions). */
+function makeSectionState() {
+  return {
+    items: [],
+    page: 1,        // logical page (PAGE_SIZE items each)
+    hasMore: false,
+    totalCount: 0,
+    loading: false,
+    hero: null,     // featured item: top result of the initial popular load
+    requestId: 0,   // guards against out-of-order async responses
+  };
+}
+const sectionState = {
+  movies: makeSectionState(),
+  games: makeSectionState(),
+  tvshows: makeSectionState(),
 };
-let gamesRequestId = 0; // guards against out-of-order responses while typing
 
 // ---------- In-memory caches (cleared on page reload) ----------
-const rawgUrlCache = new Map();       // full URL → parsed JSON response
-const gamesSnapshotCache = new Map(); // "category|search" → {items, page, hasMore, totalCount}
-const gameDetailsCache = new Map();   // game id → {details, storeLinks}
+const urlCache = new Map();      // full URL → parsed JSON response
+const snapshotCache = new Map(); // "section|category|search" → results snapshot
+const detailsCache = new Map();  // "kind:id" → modal detail payload
 
 // ---------- Element references ----------
 const heroEl = document.getElementById("hero");
@@ -95,268 +171,170 @@ const modalRating = document.getElementById("modalRating");
 const modalPlatforms = document.getElementById("modalPlatforms");
 const modalDescription = document.getElementById("modalDescription");
 const modalStores = document.getElementById("modalStores");
-let openModalGameId = null; // which game the modal is showing (for async fills)
+let openModalItemKey = null; // "kind:id" the modal is showing (for async fills)
 
 /* ============================================================
    SECTION SWITCHING
    ============================================================ */
 
-/** Switch the visible section and reset filter/search state. */
 function switchSection(sectionKey) {
   currentSection = sectionKey;
   currentCategory = "All";
   searchQuery = "";
   searchInput.value = "";
+  searchInput.placeholder = API_SECTIONS[sectionKey].searchPlaceholder;
 
-  // Highlight the active nav link
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.classList.toggle("active", link.dataset.section === sectionKey);
   });
 
   renderFilters();
-
-  if (sectionKey === "games") {
-    searchInput.placeholder = "Search the whole games database…";
-    loadGames({ reset: true });
-  } else {
-    searchInput.placeholder = "Search this section…";
-    loadMoreWrap.classList.add("hidden");
-    heroEl.classList.remove("hidden");
-    renderHero();
-    render();
-  }
+  loadSection({ reset: true });
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 /* ============================================================
-   CATEGORY FILTERS (shared by static + games sections)
+   CATEGORY FILTERS
    ============================================================ */
 
-/** Render "All" + one button per category for the current section. */
 function renderFilters() {
-  const categories =
-    currentSection === "games"
-      ? RAWG_CATEGORIES.map((c) => c.label)
-      : ["All", ...MEDIA_DATA[currentSection].categories];
-
-  filtersEl.innerHTML = categories
+  filtersEl.innerHTML = API_SECTIONS[currentSection].categories
     .map(
       (cat) => `
         <button
-          class="filter-btn ${cat === currentCategory ? "active" : ""}"
-          data-category="${escapeHtml(cat)}"
+          class="filter-btn ${cat.label === currentCategory ? "active" : ""}"
+          data-category="${escapeHtml(cat.label)}"
           type="button"
-        >${escapeHtml(cat)}</button>`
+        >${escapeHtml(cat.label)}</button>`
     )
     .join("");
 }
 
-/* ============================================================
-   STATIC SECTIONS (Movies, TV Shows) — unchanged behavior
-   ============================================================ */
-
-/** Render the featured-item banner for the current static section. */
-function renderHero() {
-  const section = MEDIA_DATA[currentSection];
-  const item = section.items.find((i) => i.featured) || section.items[0];
-  if (!item) {
-    heroEl.innerHTML = "";
-    return;
-  }
-
-  heroEl.innerHTML = heroHtml({
-    label: `★ Featured ${section.label.replace(/s$/, "")}`,
-    title: item.title,
-    meta: item.meta,
-    rating: `★ ${item.rating.toFixed(1)}`,
-    category: item.category,
-    description: item.description,
-    image: item.image,
-  });
-  heroEl.querySelector(".hero-btn").addEventListener("click", () => openModal(item));
-}
-
-/** Render the static card grid (category filter + search combined). */
-function render() {
-  const section = MEDIA_DATA[currentSection];
-  const query = searchQuery.trim().toLowerCase();
-
-  const visible = section.items.filter((item) => {
-    const matchesCategory =
-      currentCategory === "All" || item.category === currentCategory;
-    const matchesSearch = item.title.toLowerCase().includes(query);
-    return matchesCategory && matchesSearch;
-  });
-
-  emptyStateEl.classList.toggle("hidden", visible.length > 0);
-
-  gridEl.innerHTML = visible
-    .map(
-      (item, index) => `
-        <article class="card" data-index="${section.items.indexOf(item)}"
-                 style="animation-delay: ${Math.min(index * 40, 400)}ms">
-          <div class="card-image-wrap">
-            <img class="card-image" src="${item.image}"
-                 alt="${escapeHtml(item.title)}" loading="lazy" />
-            <span class="card-tag">${escapeHtml(item.category)}</span>
-          </div>
-          <div class="card-body">
-            <h3 class="card-title">${escapeHtml(item.title)}</h3>
-            <div class="card-meta">
-              <span>${escapeHtml(item.meta)}</span>
-              <span class="rating">★ ${item.rating.toFixed(1)}</span>
-            </div>
-          </div>
-        </article>`
-    )
-    .join("");
-}
-
-/** Populate and show the detail modal for a static (data.js) item. */
-function openModal(item) {
-  const section = MEDIA_DATA[currentSection];
-  openModalGameId = null;
-
-  modalImage.src = item.image;
-  modalImage.alt = `${item.title} poster`;
-  modalCategory.textContent = item.category;
-  modalTitle.textContent = item.title;
-  modalMeta.textContent = `${section.metaLabel}: ${item.meta}`;
-  modalRating.textContent = `★ ${item.rating.toFixed(1)} / 10`;
-  modalDescription.textContent = item.description;
-  // Games-only fields stay empty for static items
-  modalPlatforms.textContent = "";
-  modalStores.innerHTML = "";
-
-  showModal();
+/** The category object (with genreId / params) currently selected. */
+function activeCategory() {
+  return API_SECTIONS[currentSection].categories.find(
+    (c) => c.label === currentCategory
+  );
 }
 
 /* ============================================================
-   GAMES SECTION — RAWG API
+   SHARED LOADER — fetch, cache, paginate for every section
    ============================================================ */
 
-function apiKeyIsSet() {
-  return RAWG_API_KEY && RAWG_API_KEY !== "PASTE_YOUR_RAWG_KEY_HERE";
+function apiKeyOk(api) {
+  if (api === "rawg")
+    return RAWG_API_KEY && RAWG_API_KEY !== "PASTE_YOUR_RAWG_KEY_HERE";
+  return TMDB_API_KEY && TMDB_API_KEY !== "PASTE_YOUR_TMDB_KEY_HERE";
 }
 
-/** Cache key identifying the current filter + search combination. */
-function gamesQueryKey() {
-  return `${currentCategory}|${searchQuery.trim().toLowerCase()}`;
-}
-
-/** Build the RAWG /games list URL for a given page. */
-function buildGamesUrl(page) {
-  const params = new URLSearchParams({
-    key: RAWG_API_KEY,
-    page_size: GAMES_PAGE_SIZE,
-    page: String(page),
-  });
-
-  // Category → RAWG genre/tag params
-  const cat = RAWG_CATEGORIES.find((c) => c.label === currentCategory);
-  if (cat) {
-    for (const [k, v] of Object.entries(cat.params)) params.set(k, v);
+function keyHelpHtml(api) {
+  if (api === "rawg") {
+    return `
+      <h3>RAWG API key needed</h3>
+      <p>Open <code>script.js</code> and paste your key into
+      <code>RAWG_API_KEY</code> in the CONFIG block at the top.</p>
+      <p>Get a free key at
+      <a href="https://rawg.io/apidocs" target="_blank" rel="noopener noreferrer">rawg.io/apidocs</a>.</p>`;
   }
-
-  const query = searchQuery.trim();
-  if (query) {
-    // Let RAWG rank search results by relevance
-    params.set("search", query);
-  } else {
-    // No search → most popular first
-    params.set("ordering", "-added");
-  }
-  return `${RAWG_BASE}/games?${params.toString()}`;
+  return `
+    <h3>TMDB API key needed</h3>
+    <p>Movies &amp; TV Shows load from The Movie Database. Create a free
+    account at <a href="https://www.themoviedb.org/signup" target="_blank"
+    rel="noopener noreferrer">themoviedb.org</a>, then go to
+    <strong>Settings → API</strong> and request a developer key.</p>
+    <p>Copy the <strong>“API Key” (v3 auth)</strong> value into
+    <code>TMDB_API_KEY</code> in the CONFIG block at the top of
+    <code>script.js</code>.</p>`;
 }
 
-/** Fetch a RAWG URL with in-memory caching. */
-async function fetchRawg(url) {
-  if (rawgUrlCache.has(url)) return rawgUrlCache.get(url);
+function snapshotKey() {
+  return `${currentSection}|${currentCategory}|${searchQuery.trim().toLowerCase()}`;
+}
+
+/** Fetch a URL with in-memory caching. */
+async function fetchJson(url) {
+  if (urlCache.has(url)) return urlCache.get(url);
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`RAWG request failed (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(`Request failed (HTTP ${res.status})`);
   const data = await res.json();
-  rawgUrlCache.set(url, data);
+  urlCache.set(url, data);
   return data;
 }
 
 /**
- * Load games for the current filter + search.
- * reset=true  → new query (filter/search changed): restore from cache
- *               or fetch page 1.
- * reset=false → "Load More": fetch the next page and append.
+ * Load items for the current section + filter + search.
+ * reset=true  → new query: restore from cache or fetch page 1
+ * reset=false → "Load More": fetch the next page and append
  */
-async function loadGames({ reset = false } = {}) {
-  if (!apiKeyIsSet()) {
-    showGamesMessage(`
-      <h3>RAWG API key needed</h3>
-      <p>Open <code>script.js</code> and paste your key into the
-      <code>RAWG_API_KEY</code> variable at the very top of the file
-      (the marked CONFIG block, ~line 18).</p>
-      <p>Get a free key at
-      <a href="https://rawg.io/apidocs" target="_blank" rel="noopener noreferrer">rawg.io/apidocs</a>.</p>
-    `);
+async function loadSection({ reset = false } = {}) {
+  const sectionKey = currentSection;
+  const cfg = API_SECTIONS[sectionKey];
+  const state = sectionState[sectionKey];
+
+  if (!apiKeyOk(cfg.api)) {
+    showApiMessage(keyHelpHtml(cfg.api));
     return;
   }
 
-  const requestId = ++gamesRequestId;
-  const queryKey = gamesQueryKey();
+  const requestId = ++state.requestId;
+  const cacheKey = snapshotKey();
 
   if (reset) {
-    // Seen this exact filter+search before? Restore instantly, no refetch.
-    const cached = gamesSnapshotCache.get(queryKey);
+    // Seen this exact section+filter+search before? Restore, no refetch.
+    const cached = snapshotCache.get(cacheKey);
     if (cached) {
-      Object.assign(gamesState, {
-        items: cached.items,
-        page: cached.page,
-        hasMore: cached.hasMore,
-        totalCount: cached.totalCount,
-        loading: false,
-      });
-      renderGames();
+      Object.assign(state, { ...cached, loading: false });
+      renderSection();
       return;
     }
-    gamesState.items = [];
-    gamesState.page = 1;
-    showGamesMessage(`<p class="loading-pulse">Loading games…</p>`);
+    state.items = [];
+    state.page = 1;
+    showApiMessage(`<p class="loading-pulse">Loading ${cfg.noun}…</p>`);
   } else {
-    gamesState.page += 1;
+    state.page += 1;
   }
 
-  gamesState.loading = true;
+  state.loading = true;
   updateLoadMore();
 
   try {
-    const data = await fetchRawg(buildGamesUrl(gamesState.page));
+    const result =
+      cfg.api === "rawg"
+        ? await fetchRawgPage(state.page)
+        : await fetchTmdbPage(cfg, state.page);
+
     // A newer request (typing, filter click) superseded this one — drop it
-    if (requestId !== gamesRequestId) return;
+    if (requestId !== state.requestId) return;
 
-    const appendFrom = reset ? 0 : gamesState.items.length;
-    gamesState.items = gamesState.items.concat(data.results || []);
-    gamesState.hasMore = Boolean(data.next);
-    gamesState.totalCount = data.count || gamesState.items.length;
-    gamesState.loading = false;
+    const appendFrom = reset ? 0 : state.items.length;
+    state.items = state.items.concat(result.items);
+    state.hasMore = result.hasMore;
+    state.totalCount = result.totalCount;
+    state.loading = false;
 
-    // Featured hero = top game of the initial popular (unfiltered) load
-    if (!gamesState.hero && currentCategory === "All" && !searchQuery.trim()) {
-      gamesState.hero = gamesState.items[0] || null;
+    // Featured hero = top item of the initial popular (unfiltered) load
+    if (!state.hero && currentCategory === "All" && !searchQuery.trim()) {
+      state.hero = state.items[0] || null;
     }
 
-    gamesSnapshotCache.set(queryKey, {
-      items: gamesState.items,
-      page: gamesState.page,
-      hasMore: gamesState.hasMore,
-      totalCount: gamesState.totalCount,
+    snapshotCache.set(cacheKey, {
+      items: state.items,
+      page: state.page,
+      hasMore: state.hasMore,
+      totalCount: state.totalCount,
     });
 
-    renderGames(appendFrom);
+    // Only paint if the user is still looking at this section
+    if (currentSection === sectionKey) renderSection(appendFrom);
   } catch (err) {
-    if (requestId !== gamesRequestId) return;
-    gamesState.loading = false;
-    if (!reset) gamesState.page -= 1; // failed page can be retried
+    if (requestId !== state.requestId) return;
+    state.loading = false;
+    if (!reset) state.page -= 1; // failed page can be retried
     console.error(err);
-    if (reset || gamesState.items.length === 0) {
-      showGamesMessage(`
-        <h3>Couldn't load games</h3>
+    if (currentSection !== sectionKey) return;
+    if (reset || state.items.length === 0) {
+      showApiMessage(`
+        <h3>Couldn't load ${cfg.noun}</h3>
         <p>${escapeHtml(err.message)} — check your internet connection
         and API key, then try again.</p>
         <button class="retry-btn" type="button">Retry</button>
@@ -367,123 +345,311 @@ async function loadGames({ reset = false } = {}) {
   }
 }
 
-/** Build one game card. */
-function gameCardHtml(game, index) {
-  const year = game.released ? game.released.slice(0, 4) : "TBA";
-  const genre = game.genres && game.genres[0] ? game.genres[0].name : "Game";
-  const score = game.metacritic
-    ? `MC ${game.metacritic}`
-    : game.rating
-    ? `★ ${game.rating.toFixed(1)}`
-    : "—";
+/* ============================================================
+   API ADAPTERS — each returns { items, hasMore, totalCount }
+   with items in the shared normalized shape:
+   { kind, id, title, year, tag, score, image, heroImage,
+     description, raw }
+   ============================================================ */
 
+/* ---------------- RAWG (games) ---------------- */
+
+function buildGamesUrl(page) {
+  const params = new URLSearchParams({
+    key: RAWG_API_KEY,
+    page_size: String(PAGE_SIZE),
+    page: String(page),
+  });
+  const cat = activeCategory();
+  if (cat && cat.params) {
+    for (const [k, v] of Object.entries(cat.params)) params.set(k, v);
+  }
+  const query = searchQuery.trim();
+  if (query) {
+    params.set("search", query); // RAWG ranks search results by relevance
+  } else {
+    params.set("ordering", "-added"); // most popular first
+  }
+  return `${RAWG_BASE}/games?${params.toString()}`;
+}
+
+function normalizeGame(g) {
+  return {
+    kind: "game",
+    id: g.id,
+    title: g.name,
+    year: g.released ? g.released.slice(0, 4) : "TBA",
+    tag: (g.genres && g.genres[0] && g.genres[0].name) || "Game",
+    score: g.metacritic
+      ? `MC ${g.metacritic}`
+      : g.rating
+      ? `★ ${g.rating.toFixed(1)}`
+      : "—",
+    image: g.background_image || FALLBACK_IMG,
+    heroImage: g.background_image || FALLBACK_IMG,
+    description: `One of the most popular games on RAWG, rated ${(g.rating || 0).toFixed(1)}/5 by ${(g.ratings_count || 0).toLocaleString()} players. Click for details, platforms, and store links.`,
+    raw: g,
+  };
+}
+
+async function fetchRawgPage(page) {
+  const data = await fetchJson(buildGamesUrl(page));
+  return {
+    items: (data.results || []).map(normalizeGame),
+    hasMore: Boolean(data.next),
+    totalCount: data.count || 0,
+  };
+}
+
+/* ---------------- TMDB (movies + TV) ---------------- */
+
+function buildTmdbUrl(cfg, tmdbPage) {
+  const params = new URLSearchParams({
+    api_key: TMDB_API_KEY,
+    page: String(tmdbPage),
+    include_adult: "false",
+    language: "en-US",
+  });
+  const query = searchQuery.trim();
+  if (query) {
+    params.set("query", query);
+    return `${TMDB_BASE}/search/${cfg.tmdbType}?${params.toString()}`;
+  }
+  params.set("sort_by", "popularity.desc");
+  params.set("vote_count.gte", "100"); // keeps obscure junk out of "popular"
+  const cat = activeCategory();
+  if (cat && cat.genreId) params.set("with_genres", String(cat.genreId));
+  return `${TMDB_BASE}/discover/${cfg.tmdbType}?${params.toString()}`;
+}
+
+function normalizeTmdb(r, type) {
+  const title = type === "movie" ? r.title : r.name;
+  const date = type === "movie" ? r.release_date : r.first_air_date;
+  const genreNames = TMDB_GENRES[type];
+  return {
+    kind: type,
+    id: r.id,
+    title: title || "Untitled",
+    year: date ? date.slice(0, 4) : "TBA",
+    tag:
+      (r.genre_ids && genreNames[r.genre_ids[0]]) ||
+      (type === "movie" ? "Movie" : "TV"),
+    score: r.vote_average ? `★ ${r.vote_average.toFixed(1)}` : "—",
+    image: r.poster_path ? `${TMDB_IMG}/w342${r.poster_path}` : FALLBACK_IMG,
+    heroImage: r.backdrop_path
+      ? `${TMDB_IMG}/w1280${r.backdrop_path}`
+      : r.poster_path
+      ? `${TMDB_IMG}/w500${r.poster_path}`
+      : FALLBACK_IMG,
+    description: r.overview || "",
+    raw: r,
+  };
+}
+
+/* TMDB pages hold 20 items, so one logical page = two TMDB pages.
+   Note: TMDB search can't filter by genre server-side, so when both
+   a search and a category are active we filter the results here. */
+async function fetchTmdbPage(cfg, logicalPage) {
+  const firstPage = logicalPage * 2 - 1;
+  const secondPage = logicalPage * 2;
+
+  const d1 = await fetchJson(buildTmdbUrl(cfg, firstPage));
+  const totalPages = Math.min(d1.total_pages || 0, 500); // TMDB caps at 500
+  let results = d1.results || [];
+
+  if (totalPages >= secondPage) {
+    const d2 = await fetchJson(buildTmdbUrl(cfg, secondPage));
+    results = results.concat(d2.results || []);
+  }
+
+  let items = results.map((r) => normalizeTmdb(r, cfg.tmdbType));
+
+  const cat = activeCategory();
+  if (searchQuery.trim() && cat && cat.genreId) {
+    items = items.filter((i) =>
+      (i.raw.genre_ids || []).includes(cat.genreId)
+    );
+  }
+
+  return {
+    items,
+    hasMore: secondPage < totalPages,
+    totalCount: d1.total_results || items.length,
+  };
+}
+
+/* ============================================================
+   RENDERING (shared by all sections)
+   ============================================================ */
+
+function cardHtml(item, index) {
   return `
-    <article class="card" data-id="${game.id}"
+    <article class="card" data-id="${item.id}"
              style="animation-delay: ${Math.min(index * 40, 400)}ms">
       <div class="card-image-wrap">
-        <img class="card-image" src="${game.background_image || GAME_FALLBACK_IMG}"
-             alt="${escapeHtml(game.name)}" loading="lazy" />
-        <span class="card-tag">${escapeHtml(genre)}</span>
+        <img class="card-image" src="${item.image}"
+             alt="${escapeHtml(item.title)}" loading="lazy" />
+        <span class="card-tag">${escapeHtml(item.tag)}</span>
       </div>
       <div class="card-body">
-        <h3 class="card-title">${escapeHtml(game.name)}</h3>
+        <h3 class="card-title">${escapeHtml(item.title)}</h3>
         <div class="card-meta">
-          <span>${year}</span>
-          <span class="rating">${escapeHtml(String(score))}</span>
+          <span>${escapeHtml(item.year)}</span>
+          <span class="rating">${escapeHtml(item.score)}</span>
         </div>
       </div>
     </article>`;
 }
 
 /**
- * Render the games grid.
- * appendFrom > 0 → only insert the newly loaded cards (keeps existing
+ * Paint the current section.
+ * appendFrom > 0 → only insert newly loaded cards (keeps existing
  * cards from re-animating on every "Load More").
  */
-function renderGames(appendFrom = 0) {
-  renderGamesHero();
+function renderSection(appendFrom = 0) {
+  renderHero();
 
-  const items = gamesState.items;
-  emptyStateEl.classList.toggle("hidden", items.length > 0);
+  const state = sectionState[currentSection];
+  emptyStateEl.classList.toggle("hidden", state.items.length > 0);
 
   if (appendFrom > 0) {
     gridEl.insertAdjacentHTML(
       "beforeend",
-      items.slice(appendFrom).map((g, i) => gameCardHtml(g, i)).join("")
+      state.items.slice(appendFrom).map((it, i) => cardHtml(it, i)).join("")
     );
   } else {
-    gridEl.innerHTML = items.map((g, i) => gameCardHtml(g, i)).join("");
+    gridEl.innerHTML = state.items.map((it, i) => cardHtml(it, i)).join("");
   }
   updateLoadMore();
 }
 
-/** Hero banner for the Games section (the top popular game). */
-function renderGamesHero() {
-  const game = gamesState.hero;
-  if (!game) {
+/** Hero banner: the section's featured item (top of the popular list). */
+function renderHero() {
+  const item = sectionState[currentSection].hero;
+  if (!item) {
     heroEl.classList.add("hidden");
     return;
   }
   heroEl.classList.remove("hidden");
-
-  const genres = (game.genres || []).slice(0, 2).map((g) => g.name).join(" / ");
-  heroEl.innerHTML = heroHtml({
-    label: "★ Featured Game",
-    title: game.name,
-    meta: game.released ? game.released.slice(0, 4) : "TBA",
-    rating: game.metacritic ? `MC ${game.metacritic}` : `★ ${(game.rating || 0).toFixed(1)}`,
-    category: genres || "Game",
-    description: `One of the most popular games on RAWG, rated ${(game.rating || 0).toFixed(1)}/5 by ${(game.ratings_count || 0).toLocaleString()} players. Click for details, platforms, and store links.`,
-    image: game.background_image || GAME_FALLBACK_IMG,
-  });
-  heroEl.querySelector(".hero-btn").addEventListener("click", () => openGameModal(game));
+  heroEl.innerHTML = `
+    <img class="hero-bg" src="${item.heroImage}" alt="" aria-hidden="true" />
+    <div class="hero-content">
+      <img class="hero-poster" src="${item.image}" alt="${escapeHtml(item.title)}" />
+      <div>
+        <span class="hero-label">${escapeHtml(API_SECTIONS[currentSection].heroLabel)}</span>
+        <h1 class="hero-title">${escapeHtml(item.title)}</h1>
+        <div class="hero-meta">
+          <span>${escapeHtml(item.year)}</span>
+          <span class="rating">${escapeHtml(item.score)}</span>
+          <span>${escapeHtml(item.tag)}</span>
+        </div>
+        <p class="hero-description">${escapeHtml(item.description)}</p>
+        <button class="hero-btn" type="button">View Details</button>
+      </div>
+    </div>
+  `;
+  heroEl
+    .querySelector(".hero-btn")
+    .addEventListener("click", () => openDetailsModal(item));
 }
 
 /** Show/hide + update the "Load More" button and result count. */
 function updateLoadMore() {
-  if (currentSection !== "games" || gamesState.items.length === 0) {
+  const state = sectionState[currentSection];
+  if (state.items.length === 0) {
     loadMoreWrap.classList.add("hidden");
     return;
   }
   loadMoreWrap.classList.remove("hidden");
-  loadMoreCount.textContent = `Showing ${gamesState.items.length.toLocaleString()} of ${gamesState.totalCount.toLocaleString()} games`;
-  loadMoreBtn.classList.toggle("hidden", !gamesState.hasMore && !gamesState.loading);
-  loadMoreBtn.disabled = gamesState.loading;
-  loadMoreBtn.textContent = gamesState.loading ? "Loading…" : "Load More";
+  loadMoreCount.textContent = `Showing ${state.items.length.toLocaleString()} of ${state.totalCount.toLocaleString()} ${API_SECTIONS[currentSection].noun}`;
+  loadMoreBtn.classList.toggle("hidden", !state.hasMore && !state.loading);
+  loadMoreBtn.disabled = state.loading;
+  loadMoreBtn.textContent = state.loading ? "Loading…" : "Load More";
 }
 
 /** Replace the grid with a status/error message (spans full width). */
-function showGamesMessage(html) {
+function showApiMessage(html) {
   emptyStateEl.classList.add("hidden");
   loadMoreWrap.classList.add("hidden");
-  if (!gamesState.hero) heroEl.classList.add("hidden");
+  if (!sectionState[currentSection].hero) heroEl.classList.add("hidden");
   gridEl.innerHTML = `<div class="api-message">${html}</div>`;
 }
 
-/* ---------------- Game detail modal ---------------- */
+/* ============================================================
+   DETAIL MODAL
+   Opens instantly with list data; richer details (description,
+   store/site links) fill in asynchronously.
+   ============================================================ */
 
-/** Fetch full details + store links for one game (cached). */
-async function getGameDetails(gameId) {
-  if (gameDetailsCache.has(gameId)) return gameDetailsCache.get(gameId);
-  const [details, storesRes] = await Promise.all([
-    fetchRawg(`${RAWG_BASE}/games/${gameId}?key=${RAWG_API_KEY}`),
-    fetchRawg(`${RAWG_BASE}/games/${gameId}/stores?key=${RAWG_API_KEY}`),
-  ]);
-  const result = { details, storeLinks: storesRes.results || [] };
-  gameDetailsCache.set(gameId, result);
-  return result;
+async function openDetailsModal(item) {
+  const itemKey = `${item.kind}:${item.id}`;
+  openModalItemKey = itemKey;
+
+  modalTitle.textContent = item.title;
+  modalCategory.textContent = item.tag;
+  modalStores.innerHTML = "";
+  showModal();
+
+  if (item.kind === "game") {
+    fillGameModal(item, itemKey);
+  } else {
+    fillTmdbModal(item, itemKey);
+  }
 }
 
-/** Build store link buttons, Steam first when available. */
+/* ---------------- Games (RAWG) modal ---------------- */
+
+async function fillGameModal(item, itemKey) {
+  const g = item.raw;
+  modalImage.src = g.background_image || FALLBACK_IMG;
+  modalImage.alt = `${item.title} cover`;
+  modalCategory.textContent = (g.genres || [])
+    .slice(0, 2)
+    .map((x) => x.name)
+    .join(" / ") || "Game";
+  modalMeta.textContent = `Released: ${g.released || "TBA"}`;
+  modalRating.textContent = g.metacritic
+    ? `Metacritic: ${g.metacritic}/100`
+    : `★ ${(g.rating || 0).toFixed(1)} / 5`;
+  modalPlatforms.textContent = (g.parent_platforms || [])
+    .map((p) => p.platform.name)
+    .join(" · ");
+  modalDescription.textContent = "Loading details…";
+
+  try {
+    const cacheId = `game:${g.id}`;
+    let payload = detailsCache.get(cacheId);
+    if (!payload) {
+      const [details, storesRes] = await Promise.all([
+        fetchJson(`${RAWG_BASE}/games/${g.id}?key=${RAWG_API_KEY}`),
+        fetchJson(`${RAWG_BASE}/games/${g.id}/stores?key=${RAWG_API_KEY}`),
+      ]);
+      payload = { details, storeLinks: storesRes.results || [] };
+      detailsCache.set(cacheId, payload);
+    }
+    if (openModalItemKey !== itemKey) return; // user opened something else
+    modalDescription.textContent = truncate(
+      payload.details.description_raw || "No description available.",
+      600
+    );
+    modalStores.innerHTML = storeButtonsHtml(g, payload.storeLinks);
+  } catch (err) {
+    if (openModalItemKey !== itemKey) return;
+    modalDescription.textContent = "Couldn't load details for this game.";
+  }
+}
+
+/** Store link buttons, Steam first (direct link) when available. */
 function storeButtonsHtml(game, storeLinks) {
   const storeName = (storeId) => {
-    const fromGame = (game.stores || []).find((s) => s.store && s.store.id === storeId);
+    const fromGame = (game.stores || []).find(
+      (s) => s.store && s.store.id === storeId
+    );
     return (fromGame && fromGame.store.name) || STORE_NAMES[storeId] || "Store";
   };
 
   const links = storeLinks
     .filter((s) => s.url)
-    // Steam (store_id 1) gets a direct link and goes first
     .sort((a, b) => (a.store_id === 1 ? -1 : b.store_id === 1 ? 1 : 0));
 
   if (links.length === 0) return "";
@@ -493,7 +659,7 @@ function storeButtonsHtml(game, storeLinks) {
     links
       .map(
         (s) => `
-          <a class="store-btn ${s.store_id === 1 ? "steam" : ""}"
+          <a class="store-btn ${s.store_id === 1 ? "primary" : ""}"
              href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">
             ${escapeHtml(storeName(s.store_id))} ↗
           </a>`
@@ -502,43 +668,83 @@ function storeButtonsHtml(game, storeLinks) {
   );
 }
 
-/** Open the modal for a RAWG game; details/stores fill in async. */
-async function openGameModal(game) {
-  openModalGameId = game.id;
+/* ---------------- Movies / TV (TMDB) modal ---------------- */
 
-  const genres = (game.genres || []).slice(0, 2).map((g) => g.name).join(" / ");
-  modalImage.src = game.background_image || GAME_FALLBACK_IMG;
-  modalImage.alt = `${game.name} cover`;
-  modalCategory.textContent = genres || "Game";
-  modalTitle.textContent = game.name;
-  modalMeta.textContent = `Released: ${game.released || "TBA"}`;
-  modalRating.textContent = game.metacritic
-    ? `Metacritic: ${game.metacritic}/100`
-    : `★ ${(game.rating || 0).toFixed(1)} / 5`;
-  modalPlatforms.textContent = (game.parent_platforms || [])
-    .map((p) => p.platform.name)
+async function fillTmdbModal(item, itemKey) {
+  const r = item.raw;
+  const isMovie = item.kind === "movie";
+  const genreNames = TMDB_GENRES[item.kind];
+
+  modalImage.src = r.poster_path
+    ? `${TMDB_IMG}/w500${r.poster_path}`
+    : FALLBACK_IMG;
+  modalImage.alt = `${item.title} poster`;
+  modalMeta.textContent = isMovie
+    ? `Released: ${r.release_date || "TBA"}`
+    : `First aired: ${r.first_air_date || "TBA"}`;
+  modalRating.textContent = r.vote_average
+    ? `★ ${r.vote_average.toFixed(1)} / 10 (${(r.vote_count || 0).toLocaleString()} votes)`
+    : "Not rated yet";
+  modalPlatforms.textContent = (r.genre_ids || [])
+    .map((id) => genreNames[id])
+    .filter(Boolean)
     .join(" · ");
-  modalDescription.textContent = "Loading details…";
-  modalStores.innerHTML = "";
+  modalDescription.textContent =
+    truncate(item.description, 600) || "Loading details…";
 
-  showModal();
+  // TMDB page link is always available
+  const tmdbUrl = `https://www.themoviedb.org/${item.kind}/${item.id}`;
+  const linkBtns = [
+    `<span class="modal-stores-label">Links:</span>`,
+    `<a class="store-btn primary" href="${tmdbUrl}" target="_blank" rel="noopener noreferrer">View on TMDB ↗</a>`,
+  ];
+  modalStores.innerHTML = linkBtns.join("");
 
+  // Details request adds runtime/seasons + official site link
   try {
-    const { details, storeLinks } = await getGameDetails(game.id);
-    if (openModalGameId !== game.id) return; // user opened a different game
-    modalDescription.textContent = truncate(
-      details.description_raw || "No description available.",
-      600
-    );
-    modalStores.innerHTML = storeButtonsHtml(game, storeLinks);
+    const cacheId = `${item.kind}:${item.id}`;
+    let details = detailsCache.get(cacheId);
+    if (!details) {
+      details = await fetchJson(
+        `${TMDB_BASE}/${item.kind}/${item.id}?api_key=${TMDB_API_KEY}&language=en-US`
+      );
+      detailsCache.set(cacheId, details);
+    }
+    if (openModalItemKey !== itemKey) return;
+
+    if (!item.description && details.overview) {
+      modalDescription.textContent = truncate(details.overview, 600);
+    } else if (!item.description) {
+      modalDescription.textContent = "No description available.";
+    }
+
+    const extra = isMovie
+      ? details.runtime
+        ? `${details.runtime} min`
+        : ""
+      : details.number_of_seasons
+      ? `${details.number_of_seasons} season${details.number_of_seasons > 1 ? "s" : ""} · ${details.number_of_episodes} episodes`
+      : "";
+    const genreLine = (details.genres || []).map((x) => x.name).join(" · ");
+    modalPlatforms.textContent = [genreLine, extra]
+      .filter(Boolean)
+      .join("  ·  ");
+
+    if (details.homepage) {
+      modalStores.insertAdjacentHTML(
+        "beforeend",
+        `<a class="store-btn" href="${escapeHtml(details.homepage)}"
+            target="_blank" rel="noopener noreferrer">Official Site ↗</a>`
+      );
+    }
   } catch (err) {
-    if (openModalGameId !== game.id) return;
-    modalDescription.textContent = "Couldn't load details for this game.";
+    // Non-fatal: modal already shows the list data
+    console.error(err);
   }
 }
 
 /* ============================================================
-   MODAL open/close (shared)
+   MODAL open/close
    ============================================================ */
 
 function showModal() {
@@ -549,7 +755,7 @@ function showModal() {
 function closeModal() {
   modalOverlay.classList.add("hidden");
   document.body.style.overflow = "";
-  openModalGameId = null;
+  openModalItemKey = null;
 }
 
 /* ============================================================
@@ -572,7 +778,7 @@ document.getElementById("brand").addEventListener("click", (e) => {
   switchSection("movies");
 });
 
-// Filter buttons → set category, refetch (games) or re-render (static)
+// Filter buttons → set category and reload the section
 filtersEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".filter-btn");
   if (!btn) return;
@@ -580,46 +786,34 @@ filtersEl.addEventListener("click", (e) => {
   filtersEl
     .querySelectorAll(".filter-btn")
     .forEach((b) => b.classList.toggle("active", b === btn));
-  if (currentSection === "games") {
-    loadGames({ reset: true });
-  } else {
-    render();
-  }
+  loadSection({ reset: true });
 });
 
-// Search: static sections filter locally as you type; games query the
-// RAWG search endpoint (debounced so we don't fire per keystroke)
+// Search: queries the section's API, debounced so we don't fire
+// a request per keystroke
 let searchDebounce = null;
 searchInput.addEventListener("input", () => {
   searchQuery = searchInput.value;
-  if (currentSection === "games") {
-    clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => loadGames({ reset: true }), 350);
-  } else {
-    render();
-  }
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => loadSection({ reset: true }), 350);
 });
 
 // Grid: card clicks open the modal; also handles the error Retry button
 gridEl.addEventListener("click", (e) => {
   if (e.target.closest(".retry-btn")) {
-    loadGames({ reset: true });
+    loadSection({ reset: true });
     return;
   }
   const card = e.target.closest(".card");
   if (!card) return;
-
-  if (currentSection === "games") {
-    const game = gamesState.items.find((g) => g.id === Number(card.dataset.id));
-    if (game) openGameModal(game);
-  } else {
-    const item = MEDIA_DATA[currentSection].items[Number(card.dataset.index)];
-    if (item) openModal(item);
-  }
+  const item = sectionState[currentSection].items.find(
+    (it) => it.id === Number(card.dataset.id)
+  );
+  if (item) openDetailsModal(item);
 });
 
-// Load More → fetch the next RAWG page
-loadMoreBtn.addEventListener("click", () => loadGames({ reset: false }));
+// Load More → fetch the next page for the current section
+loadMoreBtn.addEventListener("click", () => loadSection({ reset: false }));
 
 // Modal close: X button, clicking the dark overlay, or Escape
 modalClose.addEventListener("click", closeModal);
@@ -643,27 +837,6 @@ function escapeHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-/** Shared hero banner markup (static + games sections). */
-function heroHtml({ label, title, meta, rating, category, description, image }) {
-  return `
-    <img class="hero-bg" src="${image}" alt="" aria-hidden="true" />
-    <div class="hero-content">
-      <img class="hero-poster" src="${image}" alt="${escapeHtml(title)}" />
-      <div>
-        <span class="hero-label">${escapeHtml(label)}</span>
-        <h1 class="hero-title">${escapeHtml(title)}</h1>
-        <div class="hero-meta">
-          <span>${escapeHtml(meta)}</span>
-          <span class="rating">${escapeHtml(rating)}</span>
-          <span>${escapeHtml(category)}</span>
-        </div>
-        <p class="hero-description">${escapeHtml(description)}</p>
-        <button class="hero-btn" type="button">View Details</button>
-      </div>
-    </div>
-  `;
 }
 
 /** Trim long text to n chars with an ellipsis. */
