@@ -20,7 +20,7 @@
        developer key → copy the "API Key" (v3 auth) value.
    ============================================================ */
 const RAWG_API_KEY = "65c61b552b7f4370ac9920ff91985038";
-const TMDB_API_KEY = "PASTE_YOUR_TMDB_KEY_HERE";
+const TMDB_API_KEY = "7be46c77c579dd9d30ca73a55ba00629";
 /* ============================================================
    ▲▲▲ CONFIG END ▲▲▲
    ============================================================ */
