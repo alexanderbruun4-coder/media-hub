@@ -58,6 +58,12 @@
     <p class="empty-state hidden" id="emptyState">
       No results found. Try a different search or category.
     </p>
+
+    <!-- Pagination for API-driven sections (Games): count + Load More -->
+    <div class="load-more-wrap hidden" id="loadMoreWrap">
+      <p class="load-more-count" id="loadMoreCount"></p>
+      <button class="load-more" id="loadMoreBtn" type="button">Load More</button>
+    </div>
   </main>
 
   <!-- ============================================================
@@ -75,7 +81,11 @@
             <span id="modalMeta"></span>
             <span class="rating" id="modalRating"></span>
           </div>
+          <!-- Platforms + store buttons are filled for RAWG games,
+               left empty for the static Movies / TV Shows sections -->
+          <p class="modal-platforms" id="modalPlatforms"></p>
           <p id="modalDescription"></p>
+          <div class="modal-stores" id="modalStores"></div>
         </div>
       </div>
     </div>

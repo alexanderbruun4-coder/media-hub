@@ -404,6 +404,104 @@ main {
 }
 
 /* ============================================================
+   API STATUS / LOAD MORE (Games section)
+   ============================================================ */
+
+/* Full-width message inside the grid: loading, errors, missing key */
+.api-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-dim);
+  padding: 3rem 1.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.api-message h3 {
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.api-message p {
+  max-width: 55ch;
+  margin: 0.25rem auto;
+}
+
+.api-message code {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.85em;
+  color: var(--text);
+}
+
+.api-message a {
+  color: var(--accent);
+}
+
+.loading-pulse {
+  animation: pulse 1.2s ease-in-out infinite;
+  font-size: 1.05rem;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.retry-btn {
+  margin-top: 1rem;
+  padding: 0.55rem 1.6rem;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter var(--transition);
+}
+
+.retry-btn:hover {
+  filter: brightness(1.15);
+}
+
+/* "Showing X of Y" + Load More button below the grid */
+.load-more-wrap {
+  text-align: center;
+  padding: 1.75rem 0 0.5rem;
+}
+
+.load-more-count {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.load-more {
+  padding: 0.65rem 2.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.load-more:hover:not(:disabled) {
+  background: var(--accent);
+  transform: translateY(-2px);
+}
+
+.load-more:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ============================================================
    MODAL
    ============================================================ */
 .modal-overlay {
@@ -509,6 +607,58 @@ main {
   font-size: 0.95rem;
 }
 
+/* Platform list (games): "PC · PlayStation · Xbox" */
+.modal-platforms {
+  font-size: 0.85rem !important;
+  letter-spacing: 0.3px;
+}
+
+.modal-platforms:empty {
+  display: none;
+}
+
+/* Store link buttons (games) */
+.modal-stores {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.modal-stores-label {
+  flex-basis: 100%;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.store-btn {
+  padding: 0.4rem 1rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all var(--transition);
+}
+
+.store-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+/* Steam gets the accent treatment (preferred store) */
+.store-btn.steam {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* ============================================================
    FOOTER
    ============================================================ */
@@ -595,6 +745,10 @@ main {
   }
 
   .modal-meta {
+    justify-content: center;
+  }
+
+  .modal-stores {
     justify-content: center;
   }
 }
