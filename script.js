@@ -112,6 +112,13 @@ const API_SECTIONS = {
     searchPlaceholder: "Pick a section to search…",
     categories: [],
   },
+  mylist: {
+    api: null,
+    noun: "favorites",
+    heroLabel: "",
+    searchPlaceholder: "Search your list…",
+    categories: [],
+  },
   movies: {
     api: "tmdb",
     tmdbType: "movie",
@@ -185,10 +192,14 @@ function makeSectionState() {
 }
 const sectionState = {
   home: makeSectionState(),
+  mylist: makeSectionState(),
   movies: makeSectionState(),
   games: makeSectionState(),
   tvshows: makeSectionState(),
 };
+
+// Games sort order (RAWG `ordering` values; persists while browsing)
+let gamesSort = "-added";
 
 // Home landing page state (spotlight carousel + rows)
 const homeState = {
@@ -204,6 +215,110 @@ const homeState = {
 const urlCache = new Map();      // full URL → parsed JSON response
 const snapshotCache = new Map(); // "section|category|search" → results snapshot
 const detailsCache = new Map();  // "kind:id" / "price:…" → modal detail payloads
+
+/* ============================================================
+   FAVORITES ("My List") — persisted to localStorage, with JSON
+   export/import so a list can be moved between browsers/devices.
+   ============================================================ */
+const favorites = new Map(); // "kind:id" → normalized item
+const FAV_STORAGE_KEY = "fliqora-favorites";
+
+function favKey(item) {
+  return `${item.kind}:${item.id}`;
+}
+
+function loadFavorites() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(FAV_STORAGE_KEY) || "[]");
+    for (const it of stored) {
+      if (it && it.kind && it.id && it.title) favorites.set(favKey(it), it);
+    }
+  } catch {
+    /* corrupted storage — start fresh */
+  }
+}
+
+function saveFavorites() {
+  try {
+    localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify([...favorites.values()]));
+  } catch {
+    /* storage full/blocked — favorites still work for the session */
+  }
+}
+
+/** Heart button markup shared by every card. */
+function favBtnHtml(item) {
+  const key = favKey(item);
+  const active = favorites.has(key);
+  return `
+    <button class="fav-btn ${active ? "active" : ""}" data-key="${key}" type="button"
+            aria-pressed="${active}" aria-label="${active ? "Remove from" : "Add to"} My List">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 20.7s-7-4.3-9.3-8.6C1 8.7 2.9 5.4 6.1 5.4c2 0 3.2 1 3.9 2.2.7-1.2 1.9-2.2 3.9-2.2 3.2 0 5.1 3.3 3.4 6.7C19 16.4 12 20.7 12 20.7Z"/>
+      </svg>
+    </button>`;
+}
+
+/** Toggle an item in the list and sync every visible heart. */
+function toggleFavorite(item) {
+  const key = favKey(item);
+  const nowFav = !favorites.has(key);
+  if (nowFav) favorites.set(key, item);
+  else favorites.delete(key);
+  saveFavorites();
+
+  document.querySelectorAll(`.fav-btn[data-key="${CSS.escape(key)}"]`).forEach((b) => {
+    b.classList.toggle("active", nowFav);
+    b.setAttribute("aria-pressed", String(nowFav));
+    b.setAttribute("aria-label", `${nowFav ? "Remove from" : "Add to"} My List`);
+    b.classList.remove("pop");
+    void b.offsetWidth;
+    b.classList.add("pop");
+  });
+
+  if (currentSection === "mylist") {
+    renderMyListTools(); // keep the "N saved" count fresh
+    if (!nowFav) renderMyList();
+  }
+}
+
+/** Download the list as a JSON file. */
+function exportFavorites() {
+  const blob = new Blob([JSON.stringify([...favorites.values()], null, 2)], {
+    type: "application/json",
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "fliqora-list.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/** Merge a previously exported JSON file into the list. */
+function importFavorites(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const arr = JSON.parse(reader.result);
+      if (!Array.isArray(arr)) throw new Error("not a list");
+      let added = 0;
+      for (const it of arr) {
+        if (it && it.kind && it.id && it.title && !favorites.has(favKey(it))) {
+          favorites.set(favKey(it), it);
+          added++;
+        }
+      }
+      saveFavorites();
+      if (currentSection === "mylist") {
+        renderMyListTools();
+        renderMyList();
+      }
+    } catch {
+      alert("That file doesn't look like a Fliqora list export.");
+    }
+  };
+  reader.readAsText(file);
+}
 
 // ---------- Element references ----------
 const navbarEl = document.getElementById("navbar");
@@ -231,7 +346,9 @@ const modalRating = document.getElementById("modalRating");
 const modalPlatforms = document.getElementById("modalPlatforms");
 const modalDescription = document.getElementById("modalDescription");
 const modalStores = document.getElementById("modalStores");
+const modalExtra = document.getElementById("modalExtra");
 let openModalItemKey = null; // "kind:id" the modal is showing (for async fills)
+const modalExtraItems = new Map(); // similar-title cards → normalized items
 
 /* ============================================================
    SECTION SWITCHING
@@ -245,6 +362,7 @@ function switchSection(sectionKey) {
 
   const cfg = API_SECTIONS[sectionKey];
   const isHome = sectionKey === "home";
+  const isMyList = sectionKey === "mylist";
   searchInput.placeholder = cfg.searchPlaceholder;
   searchInput.disabled = isHome; // search targets a specific database
 
@@ -262,6 +380,12 @@ function switchSection(sectionKey) {
     emptyStateEl.classList.add("hidden");
     loadMoreWrap.classList.add("hidden");
     loadHome();
+  } else if (isMyList) {
+    heroEl.classList.add("hidden");
+    heroEl.classList.remove("hero--spotlight");
+    loadMoreWrap.classList.add("hidden");
+    renderMyListTools();
+    renderMyList();
   } else {
     heroEl.classList.remove("hero--spotlight");
     renderFilters();
@@ -291,7 +415,7 @@ function positionNavPill() {
    ============================================================ */
 
 function renderFilters() {
-  filtersEl.innerHTML = API_SECTIONS[currentSection].categories
+  const chips = API_SECTIONS[currentSection].categories
     .map(
       (cat) => `
         <button
@@ -301,6 +425,56 @@ function renderFilters() {
         >${escapeHtml(cat.label)}</button>`
     )
     .join("");
+
+  // Games get a sort control alongside the genre chips
+  const sortControl =
+    currentSection === "games"
+      ? `<label class="sort-wrap">
+           <span class="sort-label">Sort</span>
+           <select class="sort-select" id="sortSelect" aria-label="Sort games">
+             <option value="-added">Most popular</option>
+             <option value="-rating">Top rated</option>
+             <option value="-released">Newest</option>
+             <option value="name">Name A–Z</option>
+           </select>
+         </label>`
+      : "";
+
+  filtersEl.innerHTML = chips + sortControl;
+  const select = document.getElementById("sortSelect");
+  if (select) select.value = gamesSort;
+}
+
+/** My List replaces the filter row with export/import tools. */
+function renderMyListTools() {
+  filtersEl.innerHTML = `
+    <button class="filter-btn tool-btn" id="exportFavs" type="button">Export list (JSON)</button>
+    <button class="filter-btn tool-btn" id="importFavs" type="button">Import list</button>
+    <span class="list-count">${favorites.size} saved</span>`;
+}
+
+/** Render the My List grid (locally filtered by the search box). */
+function renderMyList() {
+  heroEl.classList.add("hidden");
+  loadMoreWrap.classList.add("hidden");
+  const q = searchQuery.trim().toLowerCase();
+  const items = [...favorites.values()].filter(
+    (it) => !q || it.title.toLowerCase().includes(q)
+  );
+  gridEl.innerHTML = items.map((it) => cardHtml(it)).join("");
+  observeReveals(gridEl);
+  if (items.length === 0) {
+    showEmptyState(
+      favorites.size === 0
+        ? {
+            title: "Your list is empty",
+            body: "Tap the heart on any movie, game, or show to save it here.",
+          }
+        : { title: "No matches in your list", body: "Try a different search." }
+    );
+  } else {
+    emptyStateEl.classList.add("hidden");
+  }
 }
 
 /** The category object (with genreId / params) currently selected. */
@@ -341,7 +515,8 @@ function keyHelpHtml(api) {
 }
 
 function snapshotKey() {
-  return `${currentSection}|${currentCategory}|${searchQuery.trim().toLowerCase()}`;
+  const sort = currentSection === "games" ? gamesSort : "";
+  return `${currentSection}|${currentCategory}|${searchQuery.trim().toLowerCase()}|${sort}`;
 }
 
 /** Fetch a URL with in-memory caching. */
@@ -361,7 +536,7 @@ async function fetchJson(url) {
  */
 async function loadSection({ reset = false } = {}) {
   const sectionKey = currentSection;
-  if (sectionKey === "home") return; // home has its own loader
+  if (sectionKey === "home" || sectionKey === "mylist") return; // custom renderers
   const cfg = API_SECTIONS[sectionKey];
   const state = sectionState[sectionKey];
 
@@ -450,7 +625,7 @@ async function loadSection({ reset = false } = {}) {
 
 /** Pure URL builder — shared by the Games section and Home, so both
     hit identical URLs and the fetch cache is shared. */
-function gamesListUrl(page, catParams = {}, query = "") {
+function gamesListUrl(page, catParams = {}, query = "", ordering = "-added") {
   const params = new URLSearchParams({
     key: RAWG_API_KEY,
     page_size: String(PAGE_SIZE),
@@ -460,14 +635,20 @@ function gamesListUrl(page, catParams = {}, query = "") {
   if (query) {
     params.set("search", query); // RAWG ranks search results by relevance
   } else {
-    params.set("ordering", "-added"); // most popular first
+    params.set("ordering", ordering);
   }
   return `${RAWG_BASE}/games?${params.toString()}`;
 }
 
 function buildGamesUrl(page) {
   const cat = activeCategory();
-  return gamesListUrl(page, (cat && cat.params) || {}, searchQuery.trim());
+  const params = { ...((cat && cat.params) || {}) };
+  // Name/date sorts over the full 900k-game catalog surface junk
+  // entries first — restrict them to Metacritic-scored games
+  if (!searchQuery.trim() && (gamesSort === "name" || gamesSort === "-released")) {
+    params.metacritic = "1,100";
+  }
+  return gamesListUrl(page, params, searchQuery.trim(), gamesSort);
 }
 
 function normalizeGame(g) {
@@ -790,8 +971,9 @@ function rowCardHtml(item, rowKey, idx) {
     <article class="card row-card reveal" data-row="${rowKey}" data-idx="${idx}">
       <div class="card-image-wrap">
         <img class="card-image" src="${item.image}"
-             alt="${escapeHtml(item.title)}" loading="lazy" />
+             alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" />
         <span class="card-tag">${escapeHtml(item.tag)}</span>
+        ${favBtnHtml(item)}
       </div>
       <div class="card-body">
         <h3 class="card-title">${escapeHtml(item.title)}</h3>
@@ -844,13 +1026,14 @@ function renderHomeRows() {
    RENDERING (grid sections)
    ============================================================ */
 
-function cardHtml(item, index) {
+function cardHtml(item) {
   return `
-    <article class="card reveal" data-id="${item.id}">
+    <article class="card reveal" data-id="${item.id}" data-key="${favKey(item)}">
       <div class="card-image-wrap">
         <img class="card-image" src="${item.image}"
-             alt="${escapeHtml(item.title)}" loading="lazy" />
+             alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" />
         <span class="card-tag">${escapeHtml(item.tag)}</span>
+        ${favBtnHtml(item)}
       </div>
       <div class="card-body">
         <h3 class="card-title">${escapeHtml(item.title)}</h3>
@@ -871,18 +1054,42 @@ function renderSection(appendFrom = 0) {
   renderHero();
 
   const state = sectionState[currentSection];
-  emptyStateEl.classList.toggle("hidden", state.items.length > 0);
+  if (state.items.length === 0) {
+    showEmptyState({
+      title: "Nothing found",
+      body: "Try a different search or category.",
+    });
+  } else {
+    emptyStateEl.classList.add("hidden");
+  }
 
   if (appendFrom > 0) {
     gridEl.insertAdjacentHTML(
       "beforeend",
-      state.items.slice(appendFrom).map((it, i) => cardHtml(it, i)).join("")
+      state.items.slice(appendFrom).map((it) => cardHtml(it)).join("")
     );
   } else {
-    gridEl.innerHTML = state.items.map((it, i) => cardHtml(it, i)).join("");
+    gridEl.innerHTML = state.items.map((it) => cardHtml(it)).join("");
   }
   observeReveals(gridEl);
   updateLoadMore();
+}
+
+/** Friendly empty state with an illustration. */
+function showEmptyState({ title, body }) {
+  emptyStateEl.innerHTML = `
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"/>
+      <path d="m20 20-3.5-3.5"/>
+      <path d="M8.5 13.5c.7.7 1.6 1 2.5 1s1.8-.3 2.5-1" opacity="0.55"
+            transform="rotate(180 11 12.2)"/>
+      <circle cx="9" cy="9.5" r="0.6" fill="currentColor" stroke="none" opacity="0.55"/>
+      <circle cx="13" cy="9.5" r="0.6" fill="currentColor" stroke="none" opacity="0.55"/>
+    </svg>
+    <h3>${escapeHtml(title)}</h3>
+    <p>${escapeHtml(body)}</p>`;
+  emptyStateEl.classList.remove("hidden");
 }
 
 /** Hero banner: the section's featured item (top of the popular list). */
@@ -1049,12 +1256,118 @@ async function openDetailsModal(item, sourceEl) {
   modalTitle.textContent = item.title;
   modalCategory.textContent = item.tag;
   modalStores.innerHTML = "";
+  modalExtra.innerHTML = "";
   showModal(sourceEl);
 
   if (item.kind === "game") {
     fillGameModal(item, itemKey);
+    loadGameExtras(item, itemKey);
   } else {
     fillTmdbModal(item, itemKey);
+    loadTmdbExtras(item, itemKey);
+  }
+}
+
+/* ---------------- Modal extras: screenshots + similar titles ---------------- */
+
+/** Small clickable card used in "Similar" / "More like this" rows. */
+function miniCardHtml(item) {
+  modalExtraItems.set(favKey(item), item);
+  return `
+    <div class="mini-card ${item.kind}" data-key="${favKey(item)}" role="button" tabindex="0">
+      <img src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" />
+      <span>${escapeHtml(item.title)}</span>
+    </div>`;
+}
+
+/** Games: screenshots gallery + similar games row. */
+async function loadGameExtras(item, itemKey) {
+  const g = item.raw;
+
+  // Screenshots — list responses already include up to six
+  let shots = (g.short_screenshots || []).filter(
+    (s) => s.image && Number(s.id) > 0 // id -1 is the cover art itself
+  );
+  if (shots.length === 0) {
+    try {
+      const res = await fetchJson(
+        `${RAWG_BASE}/games/${g.id}/screenshots?key=${RAWG_API_KEY}`
+      );
+      shots = res.results || [];
+    } catch {}
+  }
+  shots = shots.slice(0, 8);
+
+  // Similar games — RAWG's suggested endpoint needs a paid key on
+  // some plans, so fall back to top games in the same genre
+  const cacheId = `similar:game:${g.id}`;
+  let similar = detailsCache.get(cacheId);
+  if (!similar) {
+    let results = [];
+    try {
+      const res = await fetchJson(
+        `${RAWG_BASE}/games/${g.id}/suggested?key=${RAWG_API_KEY}&page_size=10`
+      );
+      results = res.results || [];
+    } catch {}
+    if (results.length === 0) {
+      const slug = g.genres && g.genres[0] && g.genres[0].slug;
+      if (slug) {
+        try {
+          const res = await fetchJson(
+            `${RAWG_BASE}/games?key=${RAWG_API_KEY}&genres=${slug}&ordering=-added&page_size=11`
+          );
+          results = (res.results || []).filter((x) => x.id !== g.id).slice(0, 10);
+        } catch {}
+      }
+    }
+    similar = results.map(normalizeGame);
+    detailsCache.set(cacheId, similar);
+  }
+
+  if (openModalItemKey !== itemKey) return;
+  const shotsSection = shots.length
+    ? `<div class="modal-section">
+         <h3>Screenshots</h3>
+         <div class="shot-row">${shots
+           .map(
+             (s) => `<img class="shot" src="${s.image}" data-full="${s.image}"
+                        alt="Screenshot" loading="lazy" decoding="async" />`
+           )
+           .join("")}</div>
+       </div>`
+    : "";
+  const similarSection = similar.length
+    ? `<div class="modal-section">
+         <h3>Similar games</h3>
+         <div class="shot-row">${similar.map((it) => miniCardHtml(it)).join("")}</div>
+       </div>`
+    : "";
+  modalExtra.innerHTML = shotsSection + similarSection;
+}
+
+/** Movies/TV: "More like this" row from TMDB recommendations. */
+async function loadTmdbExtras(item, itemKey) {
+  try {
+    const cacheId = `similar:${item.kind}:${item.id}`;
+    let similar = detailsCache.get(cacheId);
+    if (!similar) {
+      const res = await fetchJson(
+        `${TMDB_BASE}/${item.kind}/${item.id}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
+      );
+      similar = (res.results || [])
+        .slice(0, 10)
+        .map((r) => normalizeTmdb(r, item.kind));
+      detailsCache.set(cacheId, similar);
+    }
+    if (openModalItemKey !== itemKey || similar.length === 0) return;
+    modalExtra.innerHTML = `
+      <div class="modal-section">
+        <h3>More like this</h3>
+        <div class="shot-row">${similar.map((it) => miniCardHtml(it)).join("")}</div>
+      </div>`;
+  } catch {
+    /* recommendations are optional */
   }
 }
 
@@ -1449,15 +1762,38 @@ document.getElementById("brand").addEventListener("click", (e) => {
   switchSection("home");
 });
 
-// Filter buttons → set category and reload the section
+// Filter buttons → set category and reload the section.
+// On My List the same row hosts the export/import tools instead.
 filtersEl.addEventListener("click", (e) => {
+  if (e.target.closest("#exportFavs")) {
+    exportFavorites();
+    return;
+  }
+  if (e.target.closest("#importFavs")) {
+    document.getElementById("importInput").click();
+    return;
+  }
   const btn = e.target.closest(".filter-btn");
-  if (!btn) return;
+  if (!btn || !btn.dataset.category) return;
   currentCategory = btn.dataset.category;
   filtersEl
     .querySelectorAll(".filter-btn")
     .forEach((b) => b.classList.toggle("active", b === btn));
   loadSection({ reset: true });
+});
+
+// Games sort dropdown
+filtersEl.addEventListener("change", (e) => {
+  if (e.target.id !== "sortSelect") return;
+  gamesSort = e.target.value;
+  loadSection({ reset: true });
+});
+
+// My List import file picker
+document.getElementById("importInput").addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (file) importFavorites(file);
+  e.target.value = ""; // allow re-importing the same file
 });
 
 // Search: queries the section's API, debounced so we don't fire
@@ -1466,11 +1802,16 @@ let searchDebounce = null;
 searchInput.addEventListener("input", () => {
   if (currentSection === "home") return;
   searchQuery = searchInput.value;
+  if (currentSection === "mylist") {
+    renderMyList(); // local filter, no debounce needed
+    return;
+  }
   clearTimeout(searchDebounce);
   searchDebounce = setTimeout(() => loadSection({ reset: true }), 350);
 });
 
-// Grid: card clicks open the modal; also handles the error Retry button
+// Grid: card clicks open the modal; hearts toggle favorites;
+// also handles the error Retry button
 gridEl.addEventListener("click", (e) => {
   if (e.target.closest(".retry-btn")) {
     loadSection({ reset: true });
@@ -1478,10 +1819,18 @@ gridEl.addEventListener("click", (e) => {
   }
   const card = e.target.closest(".card");
   if (!card) return;
-  const item = sectionState[currentSection].items.find(
-    (it) => it.id === Number(card.dataset.id)
-  );
-  if (item) openDetailsModal(item, card);
+  const item =
+    currentSection === "mylist"
+      ? favorites.get(card.dataset.key)
+      : sectionState[currentSection].items.find(
+          (it) => it.id === Number(card.dataset.id)
+        );
+  if (!item) return;
+  if (e.target.closest(".fav-btn")) {
+    toggleFavorite(item);
+    return;
+  }
+  openDetailsModal(item, card);
 });
 
 // Home rows: See All links, scroll arrows, and card clicks
@@ -1505,11 +1854,32 @@ homeRowsEl.addEventListener("click", (e) => {
   if (!card || card.classList.contains("skeleton-card")) return;
   const row = homeState.rows.find((r) => r.key === card.dataset.row);
   const item = row && row.items[Number(card.dataset.idx)];
-  if (item) openDetailsModal(item, card);
+  if (!item) return;
+  if (e.target.closest(".fav-btn")) {
+    toggleFavorite(item);
+    return;
+  }
+  openDetailsModal(item, card);
 });
 
 // Load More → fetch the next page for the current section
 loadMoreBtn.addEventListener("click", () => loadSection({ reset: false }));
+
+// Modal extras: screenshot click swaps the backdrop; similar-title
+// cards open that title's modal
+modalExtra.addEventListener("click", (e) => {
+  const shot = e.target.closest(".shot");
+  if (shot) {
+    modalBackdrop.src = shot.dataset.full;
+    modalBox.scrollTo({ top: 0, behavior: REDUCED_MOTION ? "auto" : "smooth" });
+    return;
+  }
+  const mini = e.target.closest(".mini-card");
+  if (mini) {
+    const item = modalExtraItems.get(mini.dataset.key);
+    if (item) openDetailsModal(item);
+  }
+});
 
 // Modal close: X button, clicking the dark overlay, or Escape
 modalClose.addEventListener("click", closeModal);
@@ -1519,7 +1889,29 @@ modalOverlay.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !modalOverlay.classList.contains("hidden")) {
     closeModal();
+    return;
   }
+  // Arrow keys drive the Home spotlight (unless typing in a field)
+  if (
+    (e.key === "ArrowRight" || e.key === "ArrowLeft") &&
+    currentSection === "home" &&
+    modalOverlay.classList.contains("hidden") &&
+    !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName) &&
+    homeState.spotlight.length > 1
+  ) {
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    setSpotlight(
+      (homeState.spotIndex + dir + homeState.spotlight.length) %
+        homeState.spotlight.length
+    );
+    startSpotlightRotation();
+  }
+});
+
+// Back-to-top button: fades in after scrolling, smooth-scrolls up
+const backToTopBtn = document.getElementById("backToTop");
+backToTopBtn.addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: REDUCED_MOTION ? "auto" : "smooth" });
 });
 
 // Navbar darkens once the page is scrolled
@@ -1531,6 +1923,7 @@ window.addEventListener(
     navScrollRaf = requestAnimationFrame(() => {
       navScrollRaf = null;
       navbarEl.classList.toggle("scrolled", window.scrollY > 12);
+      backToTopBtn.classList.toggle("show", window.scrollY > 600);
     });
   },
   { passive: true }
@@ -1563,5 +1956,6 @@ function truncate(str, n = 600) {
 /* ============================================================
    INIT — Home is the landing section
    ============================================================ */
+loadFavorites();
 initCardTilt();
 switchSection(currentSection);

@@ -1413,6 +1413,298 @@ main {
 }
 
 /* ============================================================
+   FAVORITES — heart button on every card
+   ============================================================ */
+.fav-btn {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(5, 5, 8, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  color: #fff;
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.fav-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fav-btn svg path {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 2;
+  transition: fill var(--t-fast) var(--ease), stroke var(--t-fast) var(--ease);
+}
+
+.fav-btn:hover {
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+
+.fav-btn.active {
+  border-color: rgba(229, 9, 20, 0.6);
+  background: rgba(229, 9, 20, 0.18);
+}
+
+.fav-btn.active svg path {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.fav-btn.pop {
+  animation: favPop 0.35s var(--ease);
+}
+
+@keyframes favPop {
+  0% { transform: scale(0.7); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* My List toolbar (lives in the filters row) */
+.list-count {
+  align-self: center;
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* ============================================================
+   GAMES SORT CONTROL
+   ============================================================ */
+.sort-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.sort-label {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.45rem 2.2rem 0.45rem 1.05rem;
+  background: var(--surface)
+    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238a8f98" stroke-width="2.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>')
+    no-repeat right 0.8rem center / 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.sort-select:hover {
+  border-color: var(--border-strong);
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.sort-select option {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+/* ============================================================
+   BACK TO TOP
+   ============================================================ */
+.back-to-top {
+  position: fixed;
+  right: 1.4rem;
+  bottom: calc(1.4rem + env(safe-area-inset-bottom, 0px));
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(18, 18, 26, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: opacity var(--t-med) var(--ease),
+    transform var(--t-med) var(--ease),
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.back-to-top svg {
+  width: 18px;
+  height: 18px;
+}
+
+.back-to-top.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.back-to-top:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ============================================================
+   MODAL EXTRAS — screenshots gallery + similar titles
+   ============================================================ */
+.modal-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding: 0 2rem 2rem;
+}
+
+.modal-extra:empty {
+  display: none;
+}
+
+.modal-section h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.7rem;
+}
+
+.shot-row {
+  display: flex;
+  gap: 0.7rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shot-row::-webkit-scrollbar {
+  height: 6px;
+}
+
+.shot {
+  height: 96px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.shot:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+.mini-card {
+  flex: 0 0 160px;
+  cursor: pointer;
+}
+
+.mini-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: transform var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+/* Movie/TV recommendations use portrait posters */
+.mini-card.movie,
+.mini-card.tv {
+  flex-basis: 104px;
+}
+
+.mini-card.movie img,
+.mini-card.tv img {
+  aspect-ratio: 2 / 3;
+}
+
+.mini-card span {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.mini-card:hover img {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+.mini-card:hover span {
+  color: var(--text);
+}
+
+/* ============================================================
+   EMPTY STATE illustration
+   ============================================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.empty-icon {
+  width: 58px;
+  height: 58px;
+  color: var(--text-dim);
+  opacity: 0.55;
+  margin-bottom: 0.4rem;
+}
+
+.empty-state h3 {
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.empty-state p {
+  font-size: 0.92rem;
+}
+
+/* ============================================================
    FOOTER
    ============================================================ */
 .footer {
@@ -1635,7 +1927,22 @@ main {
     justify-content: center;
   }
 
+  .modal-extra {
+    padding: 0 1.25rem 2rem;
+  }
+
   .load-more {
     width: 100%;
+  }
+
+  /* Keep the floating button clear of the thumb zone edge */
+  .back-to-top {
+    right: 1rem;
+    width: 44px;
+    height: 44px;
+  }
+
+  .sort-wrap {
+    flex-shrink: 0;
   }
 }

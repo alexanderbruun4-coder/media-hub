@@ -41,6 +41,7 @@
         <a href="#" class="nav-link" data-section="movies">Movies</a>
         <a href="#" class="nav-link" data-section="games">Games</a>
         <a href="#" class="nav-link" data-section="tvshows">TV Shows</a>
+        <a href="#" class="nav-link" data-section="mylist">My List</a>
       </nav>
 
       <div class="search-wrap">
@@ -125,8 +126,20 @@
           <div class="modal-stores" id="modalStores"></div>
         </div>
       </div>
+
+      <!-- Screenshots gallery + similar titles (filled async) -->
+      <div class="modal-extra" id="modalExtra"></div>
     </div>
   </div>
+
+  <!-- Fades in after scrolling down -->
+  <button class="back-to-top" id="backToTop" type="button" aria-label="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
+  </button>
+
+  <!-- Hidden file input for importing a saved My List JSON file -->
+  <input type="file" id="importInput" accept=".json,application/json" hidden />
 
   <footer class="footer">
     <p>Fliqora — movies, games &amp; TV in one place</p>
