@@ -1,5 +1,5 @@
 /* ============================================================
-   SCRIPT.JS — MediaHub logic
+   SCRIPT.JS — Playchive logic
 
    All three sections load live from real databases:
    - Movies    → TMDB (https://www.themoviedb.org)
@@ -654,35 +654,49 @@ async function fillGameModal(item, itemKey) {
     modalDescription.textContent = "Couldn't load details for this game.";
   }
 
-  // Steam price (data via CheapShark's Steam price tracking; the
-  // link goes straight to the game's real Steam store page).
-  // Silently skipped for games not sold on Steam.
+  // Price row: Steam first, falling back to Epic Games, then GOG
+  // (price data via CheapShark; links go to the game's real store
+  // page from RAWG). Console prices (PlayStation/Xbox/Nintendo)
+  // aren't published in any free API, so console-only games keep
+  // their store link buttons without a price.
   try {
-    // RAWG's Steam store link gives us the exact Steam app id
-    const steamStoreLink = (detailsCache.get(`game:${g.id}`)?.storeLinks || []).find(
-      (s) => s.store_id === 1 && s.url
-    );
-    const appIdMatch = steamStoreLink
-      ? steamStoreLink.url.match(/\/app\/(\d+)/)
-      : null;
-    const steamAppId = appIdMatch ? appIdMatch[1] : null;
+    const storeLinks = detailsCache.get(`game:${g.id}`)?.storeLinks || [];
+    const rawgUrlFor = (rawgStoreId) =>
+      (storeLinks.find((s) => s.store_id === rawgStoreId && s.url) || {}).url;
+    const steamUrl = rawgUrlFor(1);
+    const appIdMatch = steamUrl ? steamUrl.match(/\/app\/(\d+)/) : null;
 
-    const price = await fetchSteamPrice(item.title, steamAppId);
-    if (openModalItemKey !== itemKey || !price) return;
+    const prices = await fetchGamePrices(item.title, appIdMatch && appIdMatch[1]);
+    if (openModalItemKey !== itemKey || !prices) return;
 
-    const sale = Number(price.salePrice);
-    const retail = Number(price.retailPrice);
+    // First preferred store that has both a price and a real page link
+    let chosen = null;
+    for (const store of PRICE_STORES) {
+      const deal = prices.deals[store.csStoreId];
+      if (!deal) continue;
+      const url =
+        store.csStoreId === "1"
+          ? steamUrl ||
+            (prices.steamAppId
+              ? `https://store.steampowered.com/app/${prices.steamAppId}/`
+              : null)
+          : rawgUrlFor(store.rawgStoreId);
+      if (!url) continue;
+      chosen = { ...deal, label: store.label, url };
+      break;
+    }
+    if (!chosen) return;
+
+    const sale = Number(chosen.salePrice);
+    const retail = Number(chosen.retailPrice);
     const was = retail > sale ? ` <s>$${retail.toFixed(2)}</s>` : "";
-    const label = sale === 0 ? "Free" : `$${sale.toFixed(2)}`;
-    const steamUrl = steamStoreLink
-      ? steamStoreLink.url
-      : `https://store.steampowered.com/app/${price.steamAppId}/`;
+    const priceText = sale === 0 ? "Free" : `$${sale.toFixed(2)}`;
     modalStores.insertAdjacentHTML(
       "afterbegin",
-      `<span class="modal-stores-label">Steam price (USD):</span>
-       <a class="store-btn price" href="${escapeHtml(steamUrl)}"
+      `<span class="modal-stores-label">${escapeHtml(chosen.label)} price (USD):</span>
+       <a class="store-btn price" href="${escapeHtml(chosen.url)}"
           target="_blank" rel="noopener noreferrer">
-         💰 ${label} on Steam${was} ↗
+         💰 ${priceText} on ${escapeHtml(chosen.label)}${was} ↗
        </a>`
     );
   } catch (err) {
@@ -690,14 +704,23 @@ async function fillGameModal(item, itemKey) {
   }
 }
 
-/** Current Steam price for a game (cached). Looked up by Steam app id
-    when RAWG provides one (exact), otherwise by title. Returns null
-    for games that aren't on Steam. */
-async function fetchSteamPrice(title, steamAppId) {
+/* Stores we show prices for, in preference order. csStoreId is
+   CheapShark's store id; rawgStoreId is RAWG's id for the same store
+   (used to link to the game's real page there). */
+const PRICE_STORES = [
+  { csStoreId: "1", rawgStoreId: 1, label: "Steam" },
+  { csStoreId: "25", rawgStoreId: 11, label: "Epic Games" },
+  { csStoreId: "7", rawgStoreId: 5, label: "GOG" },
+];
+
+/** Current prices per store for a game via CheapShark (cached).
+    Looked up by Steam app id when RAWG provides one (exact),
+    otherwise by exact title. Returns null when CheapShark doesn't
+    track the game (e.g. console exclusives). */
+async function fetchGamePrices(title, steamAppId) {
   const cacheId = `price:${steamAppId || title.toLowerCase()}`;
   if (detailsCache.has(cacheId)) return detailsCache.get(cacheId);
 
-  // Resolve the game in CheapShark's catalog
   const matches = steamAppId
     ? await fetchJson(`${CHEAPSHARK_BASE}/games?steamAppID=${steamAppId}`)
     : await fetchJson(
@@ -709,16 +732,19 @@ async function fetchSteamPrice(title, steamAppId) {
 
   let payload = null;
   if (game) {
-    // Full listing contains one deal per store — pick Steam's (storeID 1)
+    // Full listing has current deals across all PC stores — keep the
+    // first (base-game) deal per store
     const listing = await fetchJson(`${CHEAPSHARK_BASE}/games?id=${game.gameID}`);
-    const steamDeal = (listing.deals || []).find((d) => d.storeID === "1");
-    if (steamDeal) {
-      payload = {
-        salePrice: steamDeal.price,
-        retailPrice: steamDeal.retailPrice,
-        steamAppId: steamAppId || listing.info?.steamAppID,
-      };
+    const deals = {};
+    for (const d of listing.deals || []) {
+      if (!deals[d.storeID]) {
+        deals[d.storeID] = { salePrice: d.price, retailPrice: d.retailPrice };
+      }
     }
+    payload = {
+      deals,
+      steamAppId: steamAppId || (listing.info && listing.info.steamAppID),
+    };
   }
   detailsCache.set(cacheId, payload);
   return payload;
