@@ -660,6 +660,50 @@ main {
   color: #fff;
 }
 
+/* Best-price button (games): gold accent + struck-through old price */
+.store-btn.price {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.store-btn.price s {
+  opacity: 0.55;
+  margin-left: 0.15rem;
+}
+
+/* Async placeholder inside .modal-stores — display:contents keeps its
+   children participating in the parent flex layout */
+.watch-slot {
+  display: contents;
+}
+
+/* Streaming service chip: provider logo + name (movies/TV modal) */
+.provider-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.9rem 0.3rem 0.35rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all var(--transition);
+}
+
+.provider-chip:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.provider-chip img {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+
 /* ============================================================
    FOOTER
    ============================================================ */

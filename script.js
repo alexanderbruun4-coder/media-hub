@@ -21,6 +21,11 @@
    ============================================================ */
 const RAWG_API_KEY = "65c61b552b7f4370ac9920ff91985038";
 const TMDB_API_KEY = "7be46c77c579dd9d30ca73a55ba00629";
+
+/* Country used for "where to watch" streaming providers.
+   "auto" = detect from the browser's language (e.g. da-DK → DK).
+   Set a fixed ISO code like "DK" or "US" to override. */
+const WATCH_REGION = "auto";
 /* ============================================================
    ▲▲▲ CONFIG END ▲▲▲
    ============================================================ */
@@ -54,6 +59,17 @@ const STORE_NAMES = {
   1: "Steam", 2: "Xbox Store", 3: "PlayStation Store", 4: "App Store",
   5: "GOG", 6: "Nintendo eShop", 7: "Xbox 360 Store", 8: "Google Play",
   9: "itch.io", 11: "Epic Games",
+};
+
+/* CheapShark (https://apidocs.cheapshark.com — free, no key) is used
+   for PC game prices. Their store ids → names: */
+const CHEAPSHARK_BASE = "https://www.cheapshark.com/api/1.0";
+const CHEAPSHARK_STORES = {
+  1: "Steam", 2: "GamersGate", 3: "Green Man Gaming", 7: "GOG", 8: "Origin",
+  11: "Humble Store", 13: "Ubisoft Store", 15: "Fanatical", 21: "WinGameStore",
+  23: "GameBillet", 24: "Voidu", 25: "Epic Games", 27: "Gamesplanet",
+  28: "Gamesload", 29: "2Game", 30: "IndieGala", 31: "Blizzard",
+  33: "DLGamer", 34: "Noctre", 35: "DreamGame",
 };
 
 /* ============================================================
@@ -637,6 +653,59 @@ async function fillGameModal(item, itemKey) {
     if (openModalItemKey !== itemKey) return;
     modalDescription.textContent = "Couldn't load details for this game.";
   }
+
+  // PC price from CheapShark (independent of the RAWG details above —
+  // silently skipped for games it doesn't track, e.g. console-onlys)
+  try {
+    const price = await fetchGamePrice(item.title);
+    if (openModalItemKey !== itemKey || !price) return;
+    const sale = Number(price.salePrice);
+    const retail = Number(price.retailPrice);
+    const was =
+      retail > sale ? ` <s>$${retail.toFixed(2)}</s>` : "";
+    const label = sale === 0 ? "Free" : `$${sale.toFixed(2)}`;
+    modalStores.insertAdjacentHTML(
+      "afterbegin",
+      `<span class="modal-stores-label">Best PC price (USD):</span>
+       <a class="store-btn price" href="${escapeHtml(price.dealUrl)}"
+          target="_blank" rel="noopener noreferrer">
+         💰 ${label} at ${escapeHtml(price.storeName)}${was} ↗
+       </a>`
+    );
+  } catch (err) {
+    // No price row — not worth an error state
+  }
+}
+
+/** Cheapest current PC price for a title via CheapShark (cached).
+    Returns null when the game isn't sold on PC stores. */
+async function fetchGamePrice(title) {
+  const cacheId = `price:${title.toLowerCase()}`;
+  if (detailsCache.has(cacheId)) return detailsCache.get(cacheId);
+
+  const matches = await fetchJson(
+    `${CHEAPSHARK_BASE}/games?title=${encodeURIComponent(title)}&limit=5`
+  );
+  // Prefer the exact title; otherwise take CheapShark's best match
+  const game =
+    matches.find((m) => m.external.toLowerCase() === title.toLowerCase()) ||
+    matches[0];
+
+  let payload = null;
+  if (game && game.cheapestDealID) {
+    const deal = await fetchJson(
+      `${CHEAPSHARK_BASE}/deals?id=${game.cheapestDealID}`
+    );
+    const info = deal.gameInfo || {};
+    payload = {
+      salePrice: info.salePrice ?? game.cheapest,
+      retailPrice: info.retailPrice ?? game.cheapest,
+      storeName: CHEAPSHARK_STORES[info.storeID] || "PC store",
+      dealUrl: `https://www.cheapshark.com/redirect?dealID=${game.cheapestDealID}`,
+    };
+  }
+  detailsCache.set(cacheId, payload);
+  return payload;
 }
 
 /** Store link buttons, Steam first (direct link) when available. */
@@ -670,6 +739,39 @@ function storeButtonsHtml(game, storeLinks) {
 
 /* ---------------- Movies / TV (TMDB) modal ---------------- */
 
+/** Country code for streaming availability (see WATCH_REGION config). */
+function watchRegion() {
+  if (WATCH_REGION !== "auto") return WATCH_REGION.toUpperCase();
+  const match = (navigator.language || "en-US").match(/-([a-z]{2})$/i);
+  return match ? match[1].toUpperCase() : "US";
+}
+
+/** Recently released (or upcoming) movies get a cinema showtimes button. */
+function isLikelyInCinemas(dateStr) {
+  if (!dateStr) return false;
+  const daysSinceRelease = (Date.now() - new Date(dateStr)) / 86400000;
+  return daysSinceRelease < 90; // negative = not out yet, also true
+}
+
+/** One row of streaming-provider chips (logo + name), all linking to
+    TMDB's watch page, which lists every option for your country. */
+function providerGroupHtml(label, providers, link) {
+  if (!providers || providers.length === 0) return "";
+  return (
+    `<span class="modal-stores-label">${escapeHtml(label)}</span>` +
+    providers
+      .map(
+        (p) => `
+          <a class="provider-chip" href="${escapeHtml(link)}"
+             target="_blank" rel="noopener noreferrer">
+            <img src="${TMDB_IMG}/w45${p.logo_path}" alt="" loading="lazy" />
+            ${escapeHtml(p.provider_name)}
+          </a>`
+      )
+      .join("")
+  );
+}
+
 async function fillTmdbModal(item, itemKey) {
   const r = item.raw;
   const isMovie = item.kind === "movie";
@@ -692,30 +794,48 @@ async function fillTmdbModal(item, itemKey) {
   modalDescription.textContent =
     truncate(item.description, 600) || "Loading details…";
 
-  // TMDB page link is always available
+  // Immediate rows: cinema showtimes (recent movies), a slot where the
+  // streaming providers appear once fetched, and the TMDB page link.
   const tmdbUrl = `https://www.themoviedb.org/${item.kind}/${item.id}`;
-  const linkBtns = [
-    `<span class="modal-stores-label">Links:</span>`,
-    `<a class="store-btn primary" href="${tmdbUrl}" target="_blank" rel="noopener noreferrer">View on TMDB ↗</a>`,
-  ];
-  modalStores.innerHTML = linkBtns.join("");
+  const cinemaRow =
+    isMovie && isLikelyInCinemas(r.release_date)
+      ? `<span class="modal-stores-label">In cinemas:</span>
+         <a class="store-btn" target="_blank" rel="noopener noreferrer"
+            href="https://www.google.com/search?q=${encodeURIComponent(item.title + " showtimes near me")}">
+           🎬 Showtimes near you ↗
+         </a>`
+      : "";
+  modalStores.innerHTML = `
+    ${cinemaRow}
+    <span class="watch-slot"><span class="modal-stores-label loading-pulse">Checking where to watch…</span></span>
+    <span class="modal-stores-label">Links:</span>
+    <a class="store-btn primary" href="${tmdbUrl}" target="_blank" rel="noopener noreferrer">View on TMDB ↗</a>
+  `;
+  const watchSlot = modalStores.querySelector(".watch-slot");
 
-  // Details request adds runtime/seasons + official site link
+  // Details (runtime/seasons, official site) + watch providers, cached
   try {
     const cacheId = `${item.kind}:${item.id}`;
-    let details = detailsCache.get(cacheId);
-    if (!details) {
-      details = await fetchJson(
-        `${TMDB_BASE}/${item.kind}/${item.id}?api_key=${TMDB_API_KEY}&language=en-US`
-      );
-      detailsCache.set(cacheId, details);
+    let payload = detailsCache.get(cacheId);
+    if (!payload) {
+      const [details, providers] = await Promise.all([
+        fetchJson(
+          `${TMDB_BASE}/${item.kind}/${item.id}?api_key=${TMDB_API_KEY}&language=en-US`
+        ),
+        fetchJson(
+          `${TMDB_BASE}/${item.kind}/${item.id}/watch/providers?api_key=${TMDB_API_KEY}`
+        ),
+      ]);
+      payload = { details, providers };
+      detailsCache.set(cacheId, payload);
     }
     if (openModalItemKey !== itemKey) return;
+    const { details, providers } = payload;
 
-    if (!item.description && details.overview) {
-      modalDescription.textContent = truncate(details.overview, 600);
-    } else if (!item.description) {
-      modalDescription.textContent = "No description available.";
+    if (!item.description) {
+      modalDescription.textContent = details.overview
+        ? truncate(details.overview, 600)
+        : "No description available.";
     }
 
     const extra = isMovie
@@ -737,9 +857,33 @@ async function fillTmdbModal(item, itemKey) {
             target="_blank" rel="noopener noreferrer">Official Site ↗</a>`
       );
     }
+
+    // Streaming availability for the user's country (US fallback)
+    const byCountry = providers.results || {};
+    const region = watchRegion();
+    const regionData = byCountry[region] || byCountry.US;
+    const usedRegion = byCountry[region] ? region : byCountry.US ? "US" : null;
+
+    if (regionData && usedRegion) {
+      // rent + buy overlap heavily — merge and dedupe by provider id
+      const rentBuy = [...(regionData.rent || []), ...(regionData.buy || [])];
+      const rentBuyUnique = [
+        ...new Map(rentBuy.map((p) => [p.provider_id, p])).values(),
+      ];
+      const watchLink = regionData.link || tmdbUrl;
+      const html =
+        providerGroupHtml(`Stream on (${usedRegion}):`, regionData.flatrate, watchLink) +
+        providerGroupHtml(`Rent or buy (${usedRegion}):`, rentBuyUnique, watchLink);
+      watchSlot.innerHTML =
+        html ||
+        `<span class="modal-stores-label">Not on any streaming service in ${usedRegion} yet.</span>`;
+    } else {
+      watchSlot.innerHTML = `<span class="modal-stores-label">No streaming info available for your region.</span>`;
+    }
   } catch (err) {
     // Non-fatal: modal already shows the list data
     console.error(err);
+    if (openModalItemKey === itemKey) watchSlot.innerHTML = "";
   }
 }
 
