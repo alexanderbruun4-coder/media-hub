@@ -654,22 +654,35 @@ async function fillGameModal(item, itemKey) {
     modalDescription.textContent = "Couldn't load details for this game.";
   }
 
-  // PC price from CheapShark (independent of the RAWG details above —
-  // silently skipped for games it doesn't track, e.g. console-onlys)
+  // Steam price (data via CheapShark's Steam price tracking; the
+  // link goes straight to the game's real Steam store page).
+  // Silently skipped for games not sold on Steam.
   try {
-    const price = await fetchGamePrice(item.title);
+    // RAWG's Steam store link gives us the exact Steam app id
+    const steamStoreLink = (detailsCache.get(`game:${g.id}`)?.storeLinks || []).find(
+      (s) => s.store_id === 1 && s.url
+    );
+    const appIdMatch = steamStoreLink
+      ? steamStoreLink.url.match(/\/app\/(\d+)/)
+      : null;
+    const steamAppId = appIdMatch ? appIdMatch[1] : null;
+
+    const price = await fetchSteamPrice(item.title, steamAppId);
     if (openModalItemKey !== itemKey || !price) return;
+
     const sale = Number(price.salePrice);
     const retail = Number(price.retailPrice);
-    const was =
-      retail > sale ? ` <s>$${retail.toFixed(2)}</s>` : "";
+    const was = retail > sale ? ` <s>$${retail.toFixed(2)}</s>` : "";
     const label = sale === 0 ? "Free" : `$${sale.toFixed(2)}`;
+    const steamUrl = steamStoreLink
+      ? steamStoreLink.url
+      : `https://store.steampowered.com/app/${price.steamAppId}/`;
     modalStores.insertAdjacentHTML(
       "afterbegin",
-      `<span class="modal-stores-label">Best PC price (USD):</span>
-       <a class="store-btn price" href="${escapeHtml(price.dealUrl)}"
+      `<span class="modal-stores-label">Steam price (USD):</span>
+       <a class="store-btn price" href="${escapeHtml(steamUrl)}"
           target="_blank" rel="noopener noreferrer">
-         💰 ${label} at ${escapeHtml(price.storeName)}${was} ↗
+         💰 ${label} on Steam${was} ↗
        </a>`
     );
   } catch (err) {
@@ -677,32 +690,35 @@ async function fillGameModal(item, itemKey) {
   }
 }
 
-/** Cheapest current PC price for a title via CheapShark (cached).
-    Returns null when the game isn't sold on PC stores. */
-async function fetchGamePrice(title) {
-  const cacheId = `price:${title.toLowerCase()}`;
+/** Current Steam price for a game (cached). Looked up by Steam app id
+    when RAWG provides one (exact), otherwise by title. Returns null
+    for games that aren't on Steam. */
+async function fetchSteamPrice(title, steamAppId) {
+  const cacheId = `price:${steamAppId || title.toLowerCase()}`;
   if (detailsCache.has(cacheId)) return detailsCache.get(cacheId);
 
-  const matches = await fetchJson(
-    `${CHEAPSHARK_BASE}/games?title=${encodeURIComponent(title)}&limit=5`
-  );
-  // Prefer the exact title; otherwise take CheapShark's best match
-  const game =
-    matches.find((m) => m.external.toLowerCase() === title.toLowerCase()) ||
-    matches[0];
+  // Resolve the game in CheapShark's catalog
+  const matches = steamAppId
+    ? await fetchJson(`${CHEAPSHARK_BASE}/games?steamAppID=${steamAppId}`)
+    : await fetchJson(
+        `${CHEAPSHARK_BASE}/games?title=${encodeURIComponent(title)}&limit=5`
+      );
+  const game = steamAppId
+    ? matches[0]
+    : matches.find((m) => m.external.toLowerCase() === title.toLowerCase());
 
   let payload = null;
-  if (game && game.cheapestDealID) {
-    const deal = await fetchJson(
-      `${CHEAPSHARK_BASE}/deals?id=${game.cheapestDealID}`
-    );
-    const info = deal.gameInfo || {};
-    payload = {
-      salePrice: info.salePrice ?? game.cheapest,
-      retailPrice: info.retailPrice ?? game.cheapest,
-      storeName: CHEAPSHARK_STORES[info.storeID] || "PC store",
-      dealUrl: `https://www.cheapshark.com/redirect?dealID=${game.cheapestDealID}`,
-    };
+  if (game) {
+    // Full listing contains one deal per store — pick Steam's (storeID 1)
+    const listing = await fetchJson(`${CHEAPSHARK_BASE}/games?id=${game.gameID}`);
+    const steamDeal = (listing.deals || []).find((d) => d.storeID === "1");
+    if (steamDeal) {
+      payload = {
+        salePrice: steamDeal.price,
+        retailPrice: steamDeal.retailPrice,
+        steamAppId: steamAppId || listing.info?.steamAppID,
+      };
+    }
   }
   detailsCache.set(cacheId, payload);
   return payload;
