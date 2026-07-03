@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MediaHub — Movies, Games &amp; TV Shows</title>
-  <link rel="stylesheet" href="style.css" />
+  <!-- ?v= is a cache-buster: bump it when deploying big changes so
+       browsers/CDNs can't serve stale copies of these files -->
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
 
@@ -95,8 +97,9 @@
     <p>MediaHub — built with plain HTML, CSS &amp; JavaScript</p>
   </footer>
 
-  <!-- Data first, then the logic that renders it -->
-  <script src="data.js"></script>
-  <script src="script.js"></script>
+  <!-- Data first, then the logic that renders it (same ?v= cache-buster
+       as the stylesheet — keep the numbers in sync when bumping) -->
+  <script src="data.js?v=2"></script>
+  <script src="script.js?v=2"></script>
 </body>
 </html>
