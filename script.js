@@ -1,14 +1,17 @@
 /* ============================================================
-   SCRIPT.JS — Playchive logic
+   SCRIPT.JS — Fliqora logic
 
-   All three sections load live from real databases:
+   Sections:
+   - Home      → landing page: rotating game spotlight + rows
    - Movies    → TMDB (https://www.themoviedb.org)
    - TV Shows  → TMDB
    - Games     → RAWG (https://rawg.io)
 
    One shared engine handles fetching, pagination ("Load More"),
-   genre filters, search, caching, and rendering for every
-   section — see API_SECTIONS below to tweak categories.
+   genre filters, search, caching, and rendering for the grid
+   sections — see API_SECTIONS below to tweak categories. The
+   Home section reuses the same fetch cache, so nothing is
+   downloaded twice.
    ============================================================ */
 
 /* ============================================================
@@ -35,6 +38,15 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMG = "https://image.tmdb.org/t/p"; // + /w342 (card), /w500 (modal), /w1280 (hero)
 const PAGE_SIZE = 40; // items added per "Load More" (TMDB pages are 20, so we fetch two)
 const FALLBACK_IMG = "https://placehold.co/400x600/141926/8b94a7?text=No+Image";
+
+// Home page tuning
+const HOME_SPOTLIGHT_COUNT = 5; // rotating hero slides
+const HOME_ROW_COUNT = 12;      // cards per horizontal row
+const HOME_ROTATE_MS = 6000;    // spotlight auto-rotate interval
+
+// Respect the user's motion preference everywhere (JS-driven motion;
+// CSS animations are disabled separately in style.css)
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* TMDB genre ids are fixed constants — used to translate each
    item's genre_ids into a display name for the card tag. */
@@ -72,6 +84,15 @@ const CHEAPSHARK_STORES = {
   33: "DLGamer", 34: "Noctre", 35: "DreamGame",
 };
 
+/* Stores we show prices for, in preference order. csStoreId is
+   CheapShark's store id; rawgStoreId is RAWG's id for the same store
+   (used to link to the game's real page there). */
+const PRICE_STORES = [
+  { csStoreId: "1", rawgStoreId: 1, label: "Steam" },
+  { csStoreId: "25", rawgStoreId: 11, label: "Epic Games" },
+  { csStoreId: "7", rawgStoreId: 5, label: "GOG" },
+];
+
 /* ============================================================
    SECTION CONFIG — the one place to edit sections/categories.
 
@@ -84,6 +105,13 @@ const CHEAPSHARK_STORES = {
    with a matching data-section attribute.
    ============================================================ */
 const API_SECTIONS = {
+  home: {
+    api: null,
+    noun: "highlights",
+    heroLabel: "Trending Now",
+    searchPlaceholder: "Pick a section to search…",
+    categories: [],
+  },
   movies: {
     api: "tmdb",
     tmdbType: "movie",
@@ -138,7 +166,7 @@ const API_SECTIONS = {
 };
 
 // ---------- App state ----------
-let currentSection = "movies";
+let currentSection = "home";
 let currentCategory = "All";
 let searchQuery = "";
 
@@ -156,28 +184,43 @@ function makeSectionState() {
   };
 }
 const sectionState = {
+  home: makeSectionState(),
   movies: makeSectionState(),
   games: makeSectionState(),
   tvshows: makeSectionState(),
 };
 
+// Home landing page state (spotlight carousel + rows)
+const homeState = {
+  loaded: false,
+  loading: false,
+  spotlight: [],   // normalized games for the rotating hero
+  spotIndex: 0,
+  timer: null,     // auto-rotate interval
+  rows: [],        // [{ key, title, section, items }]
+};
+
 // ---------- In-memory caches (cleared on page reload) ----------
 const urlCache = new Map();      // full URL → parsed JSON response
 const snapshotCache = new Map(); // "section|category|search" → results snapshot
-const detailsCache = new Map();  // "kind:id" → modal detail payload
+const detailsCache = new Map();  // "kind:id" / "price:…" → modal detail payloads
 
 // ---------- Element references ----------
+const navbarEl = document.getElementById("navbar");
 const heroEl = document.getElementById("hero");
+const homeRowsEl = document.getElementById("homeRows");
 const filtersEl = document.getElementById("filters");
 const gridEl = document.getElementById("grid");
 const emptyStateEl = document.getElementById("emptyState");
 const searchInput = document.getElementById("searchInput");
 const navLinksEl = document.getElementById("navLinks");
+const navPillEl = document.getElementById("navPill");
 const loadMoreWrap = document.getElementById("loadMoreWrap");
 const loadMoreBtn = document.getElementById("loadMoreBtn");
 const loadMoreCount = document.getElementById("loadMoreCount");
 
 const modalOverlay = document.getElementById("modalOverlay");
+const modalBox = document.getElementById("modalBox");
 const modalClose = document.getElementById("modalClose");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const modalImage = document.getElementById("modalImage");
@@ -199,14 +242,31 @@ function switchSection(sectionKey) {
   currentCategory = "All";
   searchQuery = "";
   searchInput.value = "";
-  searchInput.placeholder = API_SECTIONS[sectionKey].searchPlaceholder;
+
+  const cfg = API_SECTIONS[sectionKey];
+  const isHome = sectionKey === "home";
+  searchInput.placeholder = cfg.searchPlaceholder;
+  searchInput.disabled = isHome; // search targets a specific database
 
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.classList.toggle("active", link.dataset.section === sectionKey);
   });
+  positionNavPill();
 
-  renderFilters();
-  loadSection({ reset: true });
+  stopSpotlightRotation();
+  homeRowsEl.classList.toggle("hidden", !isHome);
+  filtersEl.classList.toggle("hidden", isHome);
+  gridEl.classList.toggle("hidden", isHome);
+
+  if (isHome) {
+    emptyStateEl.classList.add("hidden");
+    loadMoreWrap.classList.add("hidden");
+    loadHome();
+  } else {
+    heroEl.classList.remove("hero--spotlight");
+    renderFilters();
+    loadSection({ reset: true });
+  }
 
   // Retrigger the section entrance animation (style.css .section-in)
   const app = document.getElementById("app");
@@ -214,7 +274,16 @@ function switchSection(sectionKey) {
   void app.offsetWidth; // force reflow so the animation restarts
   app.classList.add("section-in");
 
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.scrollTo({ top: 0, behavior: REDUCED_MOTION ? "auto" : "smooth" });
+}
+
+/* Sliding pill behind the active nav link */
+function positionNavPill() {
+  const active = navLinksEl.querySelector(".nav-link.active");
+  if (!active || !navPillEl) return;
+  navPillEl.style.width = `${active.offsetWidth}px`;
+  navPillEl.style.transform = `translateX(${active.offsetLeft}px)`;
+  navPillEl.classList.add("ready");
 }
 
 /* ============================================================
@@ -242,7 +311,7 @@ function activeCategory() {
 }
 
 /* ============================================================
-   SHARED LOADER — fetch, cache, paginate for every section
+   SHARED LOADER — fetch, cache, paginate for every grid section
    ============================================================ */
 
 function apiKeyOk(api) {
@@ -292,6 +361,7 @@ async function fetchJson(url) {
  */
 async function loadSection({ reset = false } = {}) {
   const sectionKey = currentSection;
+  if (sectionKey === "home") return; // home has its own loader
   const cfg = API_SECTIONS[sectionKey];
   const state = sectionState[sectionKey];
 
@@ -378,23 +448,26 @@ async function loadSection({ reset = false } = {}) {
 
 /* ---------------- RAWG (games) ---------------- */
 
-function buildGamesUrl(page) {
+/** Pure URL builder — shared by the Games section and Home, so both
+    hit identical URLs and the fetch cache is shared. */
+function gamesListUrl(page, catParams = {}, query = "") {
   const params = new URLSearchParams({
     key: RAWG_API_KEY,
     page_size: String(PAGE_SIZE),
     page: String(page),
   });
-  const cat = activeCategory();
-  if (cat && cat.params) {
-    for (const [k, v] of Object.entries(cat.params)) params.set(k, v);
-  }
-  const query = searchQuery.trim();
+  for (const [k, v] of Object.entries(catParams)) params.set(k, v);
   if (query) {
     params.set("search", query); // RAWG ranks search results by relevance
   } else {
     params.set("ordering", "-added"); // most popular first
   }
   return `${RAWG_BASE}/games?${params.toString()}`;
+}
+
+function buildGamesUrl(page) {
+  const cat = activeCategory();
+  return gamesListUrl(page, (cat && cat.params) || {}, searchQuery.trim());
 }
 
 function normalizeGame(g) {
@@ -427,23 +500,27 @@ async function fetchRawgPage(page) {
 
 /* ---------------- TMDB (movies + TV) ---------------- */
 
-function buildTmdbUrl(cfg, tmdbPage) {
+/** Pure URL builder — shared by the sections and Home (cache reuse). */
+function tmdbListUrl(tmdbType, page, genreId = null, query = "") {
   const params = new URLSearchParams({
     api_key: TMDB_API_KEY,
-    page: String(tmdbPage),
+    page: String(page),
     include_adult: "false",
     language: "en-US",
   });
-  const query = searchQuery.trim();
   if (query) {
     params.set("query", query);
-    return `${TMDB_BASE}/search/${cfg.tmdbType}?${params.toString()}`;
+    return `${TMDB_BASE}/search/${tmdbType}?${params.toString()}`;
   }
   params.set("sort_by", "popularity.desc");
   params.set("vote_count.gte", "100"); // keeps obscure junk out of "popular"
+  if (genreId) params.set("with_genres", String(genreId));
+  return `${TMDB_BASE}/discover/${tmdbType}?${params.toString()}`;
+}
+
+function buildTmdbUrl(cfg, tmdbPage) {
   const cat = activeCategory();
-  if (cat && cat.genreId) params.set("with_genres", String(cat.genreId));
-  return `${TMDB_BASE}/discover/${cfg.tmdbType}?${params.toString()}`;
+  return tmdbListUrl(cfg.tmdbType, tmdbPage, cat && cat.genreId, searchQuery.trim());
 }
 
 function normalizeTmdb(r, type) {
@@ -503,13 +580,273 @@ async function fetchTmdbPage(cfg, logicalPage) {
 }
 
 /* ============================================================
-   RENDERING (shared by all sections)
+   HOME LANDING PAGE — spotlight carousel + horizontal rows
+   ============================================================ */
+
+async function loadHome() {
+  if (homeState.loaded) {
+    renderHome();
+    return;
+  }
+  if (homeState.loading) return;
+  homeState.loading = true;
+  renderHomeSkeleton();
+
+  const tmdbOk = apiKeyOk("tmdb");
+  const rawgOk = apiKeyOk("rawg");
+  const jobs = [
+    rawgOk ? fetchJson(gamesListUrl(1)) : Promise.resolve(null),
+    tmdbOk ? fetchJson(tmdbListUrl("movie", 1)) : Promise.resolve(null),
+    tmdbOk ? fetchJson(tmdbListUrl("tv", 1)) : Promise.resolve(null),
+  ];
+  const [games, movies, tv] = (await Promise.allSettled(jobs)).map((r) =>
+    r.status === "fulfilled" ? r.value : null
+  );
+
+  const gameItems = games ? (games.results || []).map(normalizeGame) : [];
+  homeState.spotlight = gameItems.slice(0, HOME_SPOTLIGHT_COUNT);
+  homeState.rows = [
+    {
+      key: "games",
+      title: "Trending Games",
+      section: "games",
+      items: gameItems.slice(HOME_SPOTLIGHT_COUNT, HOME_SPOTLIGHT_COUNT + HOME_ROW_COUNT),
+    },
+    {
+      key: "movies",
+      title: "Popular Movies",
+      section: "movies",
+      items: movies
+        ? (movies.results || []).slice(0, HOME_ROW_COUNT).map((r) => normalizeTmdb(r, "movie"))
+        : [],
+    },
+    {
+      key: "tv",
+      title: "Popular TV Shows",
+      section: "tvshows",
+      items: tv
+        ? (tv.results || []).slice(0, HOME_ROW_COUNT).map((r) => normalizeTmdb(r, "tv"))
+        : [],
+    },
+  ];
+  homeState.loaded =
+    homeState.spotlight.length > 0 || homeState.rows.some((r) => r.items.length > 0);
+  homeState.loading = false;
+
+  if (currentSection === "home") renderHome();
+}
+
+function renderHome() {
+  renderSpotlight();
+  renderHomeRows();
+}
+
+function renderHomeSkeleton() {
+  heroEl.classList.remove("hidden", "hero--spotlight");
+  heroEl.innerHTML = `<div class="hero-skeleton shimmer"></div>`;
+  homeRowsEl.innerHTML = Array.from({ length: 3 })
+    .map(
+      () => `
+      <section class="row">
+        <div class="row-head"><div class="skeleton-line row-title-skeleton shimmer"></div></div>
+        <div class="row-wrap">
+          <div class="row-scroller">
+            ${Array.from({ length: 6 })
+              .map(
+                () => `
+                <div class="card row-card skeleton-card" aria-hidden="true">
+                  <div class="skeleton-img shimmer"></div>
+                  <div class="card-body">
+                    <div class="skeleton-line shimmer"></div>
+                    <div class="skeleton-line short shimmer"></div>
+                  </div>
+                </div>`
+              )
+              .join("")}
+          </div>
+        </div>
+      </section>`
+    )
+    .join("");
+}
+
+/* ---------------- Spotlight carousel ---------------- */
+
+function renderSpotlight() {
+  const items = homeState.spotlight;
+  if (!items.length) {
+    heroEl.classList.add("hidden");
+    return;
+  }
+  heroEl.classList.remove("hidden");
+  heroEl.classList.add("hero--spotlight");
+
+  const arrowSvg = (d) =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+
+  heroEl.innerHTML = `
+    <div class="hero-slides">
+      ${items
+        .map(
+          (it, i) =>
+            `<img class="hero-bg" src="${it.heroImage}" alt="" aria-hidden="true"
+                  data-slide="${i}" ${i === 0 ? 'data-active="1"' : ""} />`
+        )
+        .join("")}
+    </div>
+    <div class="hero-content"><div class="hero-text"></div></div>
+    <button class="hero-arrow prev" type="button" aria-label="Previous spotlight">${arrowSvg("M15 6l-6 6 6 6")}</button>
+    <button class="hero-arrow next" type="button" aria-label="Next spotlight">${arrowSvg("M9 6l6 6-6 6")}</button>
+    <div class="hero-dots" role="tablist" aria-label="Spotlight slides">
+      ${items
+        .map(
+          (_, i) =>
+            `<button class="hero-dot ${i === 0 ? "active" : ""}" data-i="${i}"
+               type="button" aria-label="Slide ${i + 1}"></button>`
+        )
+        .join("")}
+    </div>
+    <div class="hero-progress" aria-hidden="true"><span class="hero-progress-bar"></span></div>
+  `;
+
+  heroEl.querySelector(".hero-arrow.prev").addEventListener("click", () => {
+    setSpotlight((homeState.spotIndex - 1 + items.length) % items.length);
+    startSpotlightRotation(); // user interaction resets the timer
+  });
+  heroEl.querySelector(".hero-arrow.next").addEventListener("click", () => {
+    setSpotlight((homeState.spotIndex + 1) % items.length);
+    startSpotlightRotation();
+  });
+  heroEl.querySelector(".hero-dots").addEventListener("click", (e) => {
+    const dot = e.target.closest(".hero-dot");
+    if (!dot) return;
+    setSpotlight(Number(dot.dataset.i));
+    startSpotlightRotation();
+  });
+
+  setSpotlight(0);
+  startSpotlightRotation();
+}
+
+/** Show slide i: crossfade backgrounds, re-animate text, restart bar. */
+function setSpotlight(i) {
+  const item = homeState.spotlight[i];
+  if (!item) return;
+  homeState.spotIndex = i;
+
+  heroEl.querySelectorAll(".hero-bg").forEach((img) => {
+    if (Number(img.dataset.slide) === i) img.setAttribute("data-active", "1");
+    else img.removeAttribute("data-active");
+  });
+  heroEl.querySelectorAll(".hero-dot").forEach((dot, j) => {
+    dot.classList.toggle("active", j === i);
+  });
+
+  const text = heroEl.querySelector(".hero-text");
+  text.innerHTML = `
+    <span class="hero-label anim-item">Trending Now</span>
+    <h1 class="hero-title anim-item">${escapeHtml(item.title)}</h1>
+    <div class="hero-meta anim-item">
+      <span>${escapeHtml(item.year)}</span>
+      <span class="rating">${escapeHtml(item.score)}</span>
+      <span>${escapeHtml(item.tag)}</span>
+    </div>
+    <p class="hero-description anim-item">${escapeHtml(item.description)}</p>
+    <button class="hero-btn anim-item" type="button">View Details</button>
+  `;
+  text
+    .querySelector(".hero-btn")
+    .addEventListener("click", (e) => openDetailsModal(item, e.currentTarget));
+
+  // Restart the 6s progress bar animation
+  const bar = heroEl.querySelector(".hero-progress-bar");
+  if (bar) {
+    bar.classList.remove("run");
+    void bar.offsetWidth;
+    if (!REDUCED_MOTION && homeState.spotlight.length > 1) bar.classList.add("run");
+  }
+}
+
+function startSpotlightRotation() {
+  stopSpotlightRotation();
+  if (REDUCED_MOTION || homeState.spotlight.length < 2) return;
+  homeState.timer = setInterval(() => {
+    // Don't advance while the tab is hidden or a modal is open
+    if (document.hidden || !modalOverlay.classList.contains("hidden")) return;
+    setSpotlight((homeState.spotIndex + 1) % homeState.spotlight.length);
+  }, HOME_ROTATE_MS);
+}
+
+function stopSpotlightRotation() {
+  if (homeState.timer) clearInterval(homeState.timer);
+  homeState.timer = null;
+}
+
+/* ---------------- Horizontal rows ---------------- */
+
+function rowCardHtml(item, rowKey, idx) {
+  return `
+    <article class="card row-card reveal" data-row="${rowKey}" data-idx="${idx}">
+      <div class="card-image-wrap">
+        <img class="card-image" src="${item.image}"
+             alt="${escapeHtml(item.title)}" loading="lazy" />
+        <span class="card-tag">${escapeHtml(item.tag)}</span>
+      </div>
+      <div class="card-body">
+        <h3 class="card-title">${escapeHtml(item.title)}</h3>
+        <div class="card-meta">
+          <span>${escapeHtml(item.year)}</span>
+          <span class="rating">${escapeHtml(item.score)}</span>
+        </div>
+      </div>
+    </article>`;
+}
+
+function renderHomeRows() {
+  const rows = homeState.rows.filter((r) => r.items.length > 0);
+  if (!rows.length) {
+    homeRowsEl.innerHTML = `<div class="api-message">${keyHelpHtml("rawg")}</div>`;
+    return;
+  }
+
+  const arrowSvg = (d) =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+
+  homeRowsEl.innerHTML = rows
+    .map(
+      (row) => `
+      <section class="row">
+        <div class="row-head">
+          <h2>${escapeHtml(row.title)}</h2>
+          <a href="#" class="see-all" data-section="${row.section}">
+            See All <span aria-hidden="true">→</span>
+          </a>
+        </div>
+        <div class="row-wrap">
+          <button class="row-arrow prev" type="button" data-dir="-1"
+                  aria-label="Scroll ${escapeHtml(row.title)} left">${arrowSvg("M15 6l-6 6 6 6")}</button>
+          <div class="row-scroller">
+            ${row.items.map((it, i) => rowCardHtml(it, row.key, i)).join("")}
+          </div>
+          <button class="row-arrow next" type="button" data-dir="1"
+                  aria-label="Scroll ${escapeHtml(row.title)} right">${arrowSvg("M9 6l6 6-6 6")}</button>
+        </div>
+      </section>`
+    )
+    .join("");
+
+  observeReveals(homeRowsEl);
+}
+
+/* ============================================================
+   RENDERING (grid sections)
    ============================================================ */
 
 function cardHtml(item, index) {
   return `
-    <article class="card" data-id="${item.id}"
-             style="animation-delay: ${Math.min(index * 40, 400)}ms">
+    <article class="card reveal" data-id="${item.id}">
       <div class="card-image-wrap">
         <img class="card-image" src="${item.image}"
              alt="${escapeHtml(item.title)}" loading="lazy" />
@@ -544,11 +881,13 @@ function renderSection(appendFrom = 0) {
   } else {
     gridEl.innerHTML = state.items.map((it, i) => cardHtml(it, i)).join("");
   }
+  observeReveals(gridEl);
   updateLoadMore();
 }
 
 /** Hero banner: the section's featured item (top of the popular list). */
 function renderHero() {
+  heroEl.classList.remove("hero--spotlight");
   const item = sectionState[currentSection].hero;
   if (!item) {
     heroEl.classList.add("hidden");
@@ -556,45 +895,31 @@ function renderHero() {
   }
   heroEl.classList.remove("hidden");
   heroEl.innerHTML = `
-    <img class="hero-bg" src="${item.heroImage}" alt="" aria-hidden="true" />
+    <img class="hero-bg kenburns" src="${item.heroImage}" alt="" aria-hidden="true" />
     <div class="hero-content">
-      <img class="hero-poster" src="${item.image}" alt="${escapeHtml(item.title)}" />
-      <div>
-        <span class="hero-label">${escapeHtml(API_SECTIONS[currentSection].heroLabel)}</span>
-        <h1 class="hero-title">${escapeHtml(item.title)}</h1>
-        <div class="hero-meta">
+      <div class="hero-text">
+        <span class="hero-label anim-item">${escapeHtml(API_SECTIONS[currentSection].heroLabel)}</span>
+        <h1 class="hero-title anim-item">${escapeHtml(item.title)}</h1>
+        <div class="hero-meta anim-item">
           <span>${escapeHtml(item.year)}</span>
           <span class="rating">${escapeHtml(item.score)}</span>
           <span>${escapeHtml(item.tag)}</span>
         </div>
-        <p class="hero-description">${escapeHtml(item.description)}</p>
-        <button class="hero-btn" type="button">View Details</button>
+        <p class="hero-description anim-item">${escapeHtml(item.description)}</p>
+        <button class="hero-btn anim-item" type="button">View Details</button>
       </div>
     </div>
   `;
   heroEl
     .querySelector(".hero-btn")
-    .addEventListener("click", () => openDetailsModal(item));
-}
-
-/** Show/hide + update the "Load More" button and result count. */
-function updateLoadMore() {
-  const state = sectionState[currentSection];
-  if (state.items.length === 0) {
-    loadMoreWrap.classList.add("hidden");
-    return;
-  }
-  loadMoreWrap.classList.remove("hidden");
-  loadMoreCount.textContent = `Showing ${state.items.length.toLocaleString()} of ${state.totalCount.toLocaleString()} ${API_SECTIONS[currentSection].noun}`;
-  loadMoreBtn.classList.toggle("hidden", !state.hasMore && !state.loading);
-  loadMoreBtn.disabled = state.loading;
-  loadMoreBtn.textContent = state.loading ? "Loading…" : "Load More";
+    .addEventListener("click", (e) => openDetailsModal(item, e.currentTarget));
 }
 
 /** Skeleton shimmer placeholders shown while a fresh page loads. */
 function renderSkeleton(state) {
   emptyStateEl.classList.add("hidden");
   loadMoreWrap.classList.add("hidden");
+  heroEl.classList.remove("hero--spotlight");
   if (state.hero) {
     renderHero(); // keep the real hero while the grid refreshes
   } else {
@@ -615,6 +940,22 @@ function renderSkeleton(state) {
     .join("");
 }
 
+/** Show/hide + update the "Load More" button and result count. */
+function updateLoadMore() {
+  const state = sectionState[currentSection];
+  if (currentSection === "home" || state.items.length === 0) {
+    loadMoreWrap.classList.add("hidden");
+    return;
+  }
+  loadMoreWrap.classList.remove("hidden");
+  loadMoreCount.textContent = `Showing ${state.items.length.toLocaleString()} of ${state.totalCount.toLocaleString()} ${API_SECTIONS[currentSection].noun}`;
+  loadMoreBtn.classList.toggle("hidden", !state.hasMore && !state.loading);
+  loadMoreBtn.disabled = state.loading;
+  loadMoreBtn.innerHTML = state.loading
+    ? `<span class="spinner" aria-hidden="true"></span>Loading…`
+    : "Load More";
+}
+
 /** Replace the grid with a status/error message (spans full width). */
 function showApiMessage(html) {
   emptyStateEl.classList.add("hidden");
@@ -624,12 +965,83 @@ function showApiMessage(html) {
 }
 
 /* ============================================================
+   SCROLL-REVEAL — cards fade up as they enter the viewport
+   ============================================================ */
+
+const revealObserver =
+  "IntersectionObserver" in window
+    ? new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("visible");
+              revealObserver.unobserve(entry.target);
+            }
+          }
+        },
+        { rootMargin: "0px 0px -30px 0px", threshold: 0.05 }
+      )
+    : null;
+
+/** Observe all not-yet-revealed cards in a container, with a small
+    stagger (30–50ms per item, capped) via a CSS variable. */
+function observeReveals(container) {
+  const els = container.querySelectorAll(".reveal:not(.visible)");
+  els.forEach((el, i) => {
+    el.style.setProperty("--reveal-delay", `${Math.min((i % 10) * 40, 360)}ms`);
+    if (revealObserver && !REDUCED_MOTION) {
+      revealObserver.observe(el);
+    } else {
+      el.classList.add("visible");
+    }
+  });
+}
+
+/* ============================================================
+   CARD TILT — subtle 3D tilt toward the cursor (desktop only)
+   ============================================================ */
+
+function initCardTilt() {
+  if (REDUCED_MOTION || !window.matchMedia("(pointer: fine)").matches) return;
+  let rafId = null;
+
+  document.addEventListener(
+    "mousemove",
+    (e) => {
+      const card = e.target.closest && e.target.closest(".card:not(.skeleton-card)");
+      if (!card || rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const rect = card.getBoundingClientRect();
+        const px = (e.clientX - rect.left) / rect.width - 0.5;
+        const py = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.setProperty("--ry", `${(px * 6).toFixed(2)}deg`);
+        card.style.setProperty("--rx", `${(-py * 6).toFixed(2)}deg`);
+      });
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    "mouseout",
+    (e) => {
+      const card = e.target.closest && e.target.closest(".card");
+      if (card && (!e.relatedTarget || !card.contains(e.relatedTarget))) {
+        card.style.setProperty("--rx", "0deg");
+        card.style.setProperty("--ry", "0deg");
+      }
+    },
+    { passive: true }
+  );
+}
+
+/* ============================================================
    DETAIL MODAL
    Opens instantly with list data; richer details (description,
    store/site links) fill in asynchronously.
    ============================================================ */
 
-async function openDetailsModal(item) {
+async function openDetailsModal(item, sourceEl) {
   const itemKey = `${item.kind}:${item.id}`;
   openModalItemKey = itemKey;
 
@@ -637,13 +1049,32 @@ async function openDetailsModal(item) {
   modalTitle.textContent = item.title;
   modalCategory.textContent = item.tag;
   modalStores.innerHTML = "";
-  showModal();
+  showModal(sourceEl);
 
   if (item.kind === "game") {
     fillGameModal(item, itemKey);
   } else {
     fillTmdbModal(item, itemKey);
   }
+}
+
+/** Animated rating count-up (transform-free, text only). */
+function countUpRating(el, target, { decimals = 0, prefix = "", suffix = "" } = {}) {
+  const final = `${prefix}${Number(target).toFixed(decimals)}${suffix}`;
+  if (REDUCED_MOTION || !target) {
+    el.textContent = final;
+    return;
+  }
+  const start = performance.now();
+  const duration = 650;
+  const tick = (now) => {
+    const p = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    el.textContent = `${prefix}${(target * eased).toFixed(decimals)}${suffix}`;
+    if (p < 1 && openModalItemKey) requestAnimationFrame(tick);
+    else el.textContent = final;
+  };
+  requestAnimationFrame(tick);
 }
 
 /* ---------------- Games (RAWG) modal ---------------- */
@@ -657,9 +1088,11 @@ async function fillGameModal(item, itemKey) {
     .map((x) => x.name)
     .join(" / ") || "Game";
   modalMeta.textContent = `Released: ${g.released || "TBA"}`;
-  modalRating.textContent = g.metacritic
-    ? `Metacritic: ${g.metacritic}/100`
-    : `★ ${(g.rating || 0).toFixed(1)} / 5`;
+  if (g.metacritic) {
+    countUpRating(modalRating, g.metacritic, { prefix: "Metacritic: ", suffix: "/100" });
+  } else {
+    countUpRating(modalRating, g.rating || 0, { decimals: 1, prefix: "★ ", suffix: " / 5" });
+  }
   modalPlatforms.textContent = (g.parent_platforms || [])
     .map((p) => p.platform.name)
     .join(" · ");
@@ -736,15 +1169,6 @@ async function fillGameModal(item, itemKey) {
     // No price row — not worth an error state
   }
 }
-
-/* Stores we show prices for, in preference order. csStoreId is
-   CheapShark's store id; rawgStoreId is RAWG's id for the same store
-   (used to link to the game's real page there). */
-const PRICE_STORES = [
-  { csStoreId: "1", rawgStoreId: 1, label: "Steam" },
-  { csStoreId: "25", rawgStoreId: 11, label: "Epic Games" },
-  { csStoreId: "7", rawgStoreId: 5, label: "GOG" },
-];
 
 /** Current prices per store for a game via CheapShark (cached).
     Looked up by Steam app id when RAWG provides one (exact),
@@ -859,9 +1283,15 @@ async function fillTmdbModal(item, itemKey) {
   modalMeta.textContent = isMovie
     ? `Released: ${r.release_date || "TBA"}`
     : `First aired: ${r.first_air_date || "TBA"}`;
-  modalRating.textContent = r.vote_average
-    ? `★ ${r.vote_average.toFixed(1)} / 10 (${(r.vote_count || 0).toLocaleString()} votes)`
-    : "Not rated yet";
+  if (r.vote_average) {
+    countUpRating(modalRating, r.vote_average, {
+      decimals: 1,
+      prefix: "★ ",
+      suffix: ` / 10 (${(r.vote_count || 0).toLocaleString()} votes)`,
+    });
+  } else {
+    modalRating.textContent = "Not rated yet";
+  }
   modalPlatforms.textContent = (r.genre_ids || [])
     .map((id) => genreNames[id])
     .filter(Boolean)
@@ -963,16 +1393,38 @@ async function fillTmdbModal(item, itemKey) {
 }
 
 /* ============================================================
-   MODAL open/close
+   MODAL open/close — scales in from the clicked card's position
+   (shared-element feel), content staggers in via .open class
    ============================================================ */
 
-function showModal() {
+function showModal(sourceEl) {
   modalOverlay.classList.remove("hidden");
   document.body.style.overflow = "hidden"; // lock page scroll behind modal
+
+  // Retrigger the content stagger animation
+  modalBox.classList.remove("open");
+  void modalBox.offsetWidth;
+  modalBox.classList.add("open");
+  modalBox.scrollTop = 0;
+
+  // Animate from the clicked card toward the center (transform+opacity only)
+  if (!REDUCED_MOTION && sourceEl && modalBox.animate) {
+    const rect = sourceEl.getBoundingClientRect();
+    const dx = rect.left + rect.width / 2 - window.innerWidth / 2;
+    const dy = rect.top + rect.height / 2 - window.innerHeight / 2;
+    modalBox.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(0.5)`, opacity: 0.3 },
+        { transform: "translate(0, 0) scale(1)", opacity: 1 },
+      ],
+      { duration: 340, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+    );
+  }
 }
 
 function closeModal() {
   modalOverlay.classList.add("hidden");
+  modalBox.classList.remove("open");
   document.body.style.overflow = "";
   openModalItemKey = null;
 }
@@ -991,10 +1443,10 @@ navLinksEl.addEventListener("click", (e) => {
   switchSection(link.dataset.section);
 });
 
-// Brand logo → back to the first section
+// Brand logo → home
 document.getElementById("brand").addEventListener("click", (e) => {
   e.preventDefault();
-  switchSection("movies");
+  switchSection("home");
 });
 
 // Filter buttons → set category and reload the section
@@ -1009,9 +1461,10 @@ filtersEl.addEventListener("click", (e) => {
 });
 
 // Search: queries the section's API, debounced so we don't fire
-// a request per keystroke
+// a request per keystroke (disabled on Home)
 let searchDebounce = null;
 searchInput.addEventListener("input", () => {
+  if (currentSection === "home") return;
   searchQuery = searchInput.value;
   clearTimeout(searchDebounce);
   searchDebounce = setTimeout(() => loadSection({ reset: true }), 350);
@@ -1028,7 +1481,31 @@ gridEl.addEventListener("click", (e) => {
   const item = sectionState[currentSection].items.find(
     (it) => it.id === Number(card.dataset.id)
   );
-  if (item) openDetailsModal(item);
+  if (item) openDetailsModal(item, card);
+});
+
+// Home rows: See All links, scroll arrows, and card clicks
+homeRowsEl.addEventListener("click", (e) => {
+  const seeAll = e.target.closest(".see-all");
+  if (seeAll) {
+    e.preventDefault();
+    switchSection(seeAll.dataset.section);
+    return;
+  }
+  const arrow = e.target.closest(".row-arrow");
+  if (arrow) {
+    const scroller = arrow.parentElement.querySelector(".row-scroller");
+    scroller.scrollBy({
+      left: Number(arrow.dataset.dir) * scroller.clientWidth * 0.85,
+      behavior: REDUCED_MOTION ? "auto" : "smooth",
+    });
+    return;
+  }
+  const card = e.target.closest(".card");
+  if (!card || card.classList.contains("skeleton-card")) return;
+  const row = homeState.rows.find((r) => r.key === card.dataset.row);
+  const item = row && row.items[Number(card.dataset.idx)];
+  if (item) openDetailsModal(item, card);
 });
 
 // Load More → fetch the next page for the current section
@@ -1044,6 +1521,26 @@ document.addEventListener("keydown", (e) => {
     closeModal();
   }
 });
+
+// Navbar darkens once the page is scrolled
+let navScrollRaf = null;
+window.addEventListener(
+  "scroll",
+  () => {
+    if (navScrollRaf) return;
+    navScrollRaf = requestAnimationFrame(() => {
+      navScrollRaf = null;
+      navbarEl.classList.toggle("scrolled", window.scrollY > 12);
+    });
+  },
+  { passive: true }
+);
+
+// Keep the nav pill aligned on resize and after fonts load
+window.addEventListener("resize", positionNavPill);
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(positionNavPill);
+}
 
 /* ============================================================
    UTILITIES
@@ -1064,6 +1561,7 @@ function truncate(str, n = 600) {
 }
 
 /* ============================================================
-   INIT — render the default section on page load
+   INIT — Home is the landing section
    ============================================================ */
+initCardTilt();
 switchSection(currentSection);

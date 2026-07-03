@@ -8,7 +8,7 @@
    - hairline borders rgba(255,255,255,.08), 16px card radius
    - glassmorphism navbar, accent glow on primary actions
    - easing cubic-bezier(0.16,1,0.3,1), 150–300ms transitions
-   - skeleton shimmer while API data loads
+   - motion: transform/opacity only (60fps), reduced-motion safe
    ============================================================ */
 
 :root {
@@ -133,7 +133,7 @@ img {
 }
 
 /* ============================================================
-   NAVBAR — frosted glass
+   NAVBAR — frosted glass, darkens on scroll, sliding active pill
    ============================================================ */
 .navbar {
   position: sticky;
@@ -143,6 +143,12 @@ img {
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border-bottom: 1px solid var(--border);
+  transition: background var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease);
+}
+
+.navbar.scrolled {
+  background: rgba(5, 5, 9, 0.92);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
 .navbar-inner {
@@ -173,6 +179,11 @@ img {
   background: var(--accent-gradient);
   box-shadow: 0 4px 16px var(--accent-glow);
   color: #fff;
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.brand:hover .brand-icon {
+  transform: rotate(15deg) scale(1.06);
 }
 
 .brand-icon svg {
@@ -187,6 +198,7 @@ img {
 }
 
 .nav-links {
+  position: relative;
   display: flex;
   gap: 0.35rem;
   padding: 0.25rem;
@@ -195,8 +207,26 @@ img {
   border-radius: 999px;
 }
 
+/* The gradient pill that slides between nav items (positioned by JS) */
+.nav-pill {
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0;
+  width: 0;
+  border-radius: 999px;
+  background: var(--accent-gradient);
+  box-shadow: 0 4px 18px var(--accent-glow);
+  pointer-events: none;
+}
+
+.nav-pill.ready {
+  transition: transform var(--t-med) var(--ease), width var(--t-med) var(--ease);
+}
+
 .nav-link {
   position: relative;
+  z-index: 1;
   color: var(--text-dim);
   text-decoration: none;
   font-size: 0.92rem;
@@ -213,8 +243,7 @@ img {
 
 .nav-link.active {
   color: #fff;
-  background: var(--accent-gradient);
-  box-shadow: 0 4px 18px var(--accent-glow);
+  background: transparent; /* the sliding pill provides the fill */
 }
 
 /* Search */
@@ -253,7 +282,8 @@ img {
   outline: none;
   transition: border-color var(--t-fast) var(--ease),
     background var(--t-fast) var(--ease),
-    box-shadow var(--t-fast) var(--ease);
+    box-shadow var(--t-fast) var(--ease),
+    opacity var(--t-fast) var(--ease);
 }
 
 .search-input::placeholder {
@@ -264,6 +294,11 @@ img {
   background: var(--bg-elevated);
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.search-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .search-input::-webkit-search-cancel-button {
@@ -283,13 +318,13 @@ main {
 
 /* Retriggered by script.js on every section switch */
 .section-in {
-  animation: sectionIn 0.45s var(--ease) both;
+  animation: sectionIn 0.32s var(--ease) both;
 }
 
 @keyframes sectionIn {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -298,7 +333,7 @@ main {
 }
 
 /* ============================================================
-   HERO — cinematic featured banner
+   HERO — cinematic banner (static on sections, carousel on Home)
    ============================================================ */
 .hero {
   position: relative;
@@ -321,6 +356,31 @@ main {
   object-fit: cover;
 }
 
+/* Slow Ken Burns drift on hero artwork (transform-only, GPU-cheap) */
+.hero-bg.kenburns,
+.hero--spotlight .hero-bg[data-active] {
+  animation: kenburns 14s var(--ease) both;
+}
+
+@keyframes kenburns {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.12) translate(1.5%, -1.5%);
+  }
+}
+
+/* Spotlight slides: stacked images crossfading */
+.hero--spotlight .hero-bg {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.hero--spotlight .hero-bg[data-active] {
+  opacity: 1;
+}
+
 /* Layered gradient overlays: bottom-up for legibility,
    left-to-right for text anchoring — the cinematic look */
 .hero-content {
@@ -336,14 +396,29 @@ main {
     linear-gradient(to right, rgba(5, 5, 8, 0.55) 0%, transparent 70%);
 }
 
-.hero-poster {
-  width: 150px;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-lg);
-  flex-shrink: 0;
+.hero-text {
+  max-width: 70ch;
+}
+
+/* Staggered entrance for hero text (re-applied on every slide) */
+.anim-item {
+  animation: fadeSlideIn 0.5s var(--ease) both;
+}
+
+.anim-item:nth-child(2) { animation-delay: 0.05s; }
+.anim-item:nth-child(3) { animation-delay: 0.1s; }
+.anim-item:nth-child(4) { animation-delay: 0.15s; }
+.anim-item:nth-child(5) { animation-delay: 0.2s; }
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hero-label {
@@ -428,11 +503,244 @@ main {
   filter: brightness(1.1);
 }
 
+.hero-btn:active {
+  transform: scale(0.96);
+}
+
+/* Spotlight carousel controls */
+.hero-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(5, 5, 8, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--t-med) var(--ease),
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.hero-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hero-arrow.prev { left: 1rem; }
+.hero-arrow.next { right: 1rem; }
+
+.hero--spotlight:hover .hero-arrow,
+.hero-arrow:focus-visible {
+  opacity: 1;
+}
+
+.hero-arrow:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.hero-arrow:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.hero-dots {
+  position: absolute;
+  bottom: 1.1rem;
+  right: 1.4rem;
+  z-index: 2;
+  display: flex;
+  gap: 0.45rem;
+}
+
+.hero-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+/* Active dot stretches into a small bar */
+.hero-dot.active {
+  background: var(--accent);
+  transform: scaleX(2.4);
+  border-radius: 999px;
+}
+
+.hero-dot:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+/* Time-until-next-slide bar along the hero's bottom edge */
+.hero-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-progress-bar {
+  display: block;
+  height: 100%;
+  background: var(--accent-gradient);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.hero-progress-bar.run {
+  animation: progressFill 6s linear both; /* matches HOME_ROTATE_MS */
+}
+
+@keyframes progressFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
 /* Hero skeleton while the first page loads */
 .hero-skeleton {
   width: 100%;
   min-height: 420px;
   border-radius: var(--radius);
+}
+
+/* ============================================================
+   HOME — horizontal media rows
+   ============================================================ */
+.home-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2.1rem;
+  padding-bottom: 1rem;
+}
+
+.row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.row-head h2 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.see-all {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.87rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.see-all:hover {
+  color: #ff5b64;
+}
+
+.see-all span {
+  display: inline-block;
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.see-all:hover span {
+  transform: translateX(4px);
+}
+
+.row-wrap {
+  position: relative;
+}
+
+/* Native momentum scrolling + snap; scrollbar hidden */
+.row-scroller {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding: 0.3rem 0.25rem 0.75rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.row-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.row-card {
+  flex: 0 0 170px;
+  scroll-snap-align: start;
+}
+
+/* Arrows fade in when hovering the row (desktop pointer only) */
+.row-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(5, 5, 8, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--t-med) var(--ease),
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.row-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+
+.row-arrow.prev { left: -10px; }
+.row-arrow.next { right: -10px; }
+
+.row-wrap:hover .row-arrow,
+.row-arrow:focus-visible {
+  opacity: 1;
+}
+
+.row-arrow:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.row-arrow:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+@media (pointer: coarse) {
+  .row-arrow {
+    display: none; /* touch scrolls natively */
+  }
+}
+
+.row-title-skeleton {
+  width: 180px;
+  height: 1.2rem;
 }
 
 /* ============================================================
@@ -469,11 +777,23 @@ main {
   transform: translateY(-1px);
 }
 
+/* Springy press */
+.filter-btn:active {
+  transform: scale(0.93);
+}
+
 .filter-btn.active {
   background: var(--accent-gradient);
   border-color: transparent;
   color: #fff;
   box-shadow: 0 4px 18px var(--accent-glow);
+  animation: chipPop 0.32s var(--ease);
+}
+
+@keyframes chipPop {
+  0% { transform: scale(0.92); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 /* ============================================================
@@ -485,33 +805,52 @@ main {
   gap: 1.4rem;
 }
 
+/* Tilt-ready transform: JS feeds --rx/--ry (cursor tilt), CSS vars
+   feed hover lift — all on one GPU-composited property */
 .card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   cursor: pointer;
-  animation: cardIn 0.5s var(--ease) both;
-  transition: transform var(--t-med) var(--ease),
+  transform: perspective(900px) translateY(var(--ty, 0px)) scale(var(--sc, 1))
+    rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.25s var(--ease),
     box-shadow var(--t-med) var(--ease),
     border-color var(--t-med) var(--ease);
 }
 
 .card:hover {
-  transform: translateY(-8px) scale(1.02);
+  --ty: -8px;
+  --sc: 1.02;
   border-color: rgba(229, 9, 20, 0.5);
   box-shadow: var(--shadow-card), 0 0 0 1px rgba(229, 9, 20, 0.25),
     0 12px 44px rgba(229, 9, 20, 0.12);
 }
 
+.card:active {
+  --sc: 0.98;
+}
+
+/* Scroll-reveal entrance (IntersectionObserver adds .visible) */
+.card.reveal {
+  opacity: 0;
+}
+
+.card.reveal.visible {
+  opacity: 1;
+  animation: cardIn 0.55s var(--ease) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
 @keyframes cardIn {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: perspective(900px) translateY(18px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: perspective(900px) translateY(0);
   }
 }
 
@@ -617,7 +956,12 @@ main {
 
 .skeleton-card {
   pointer-events: none;
-  animation: cardIn 0.4s var(--ease) both;
+  animation: skeletonIn 0.4s var(--ease) both;
+}
+
+@keyframes skeletonIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .skeleton-img {
@@ -685,7 +1029,6 @@ main {
 
 .loading-pulse {
   animation: pulse 1.2s ease-in-out infinite;
-  font-size: 1.02rem;
 }
 
 @keyframes pulse {
@@ -712,6 +1055,10 @@ main {
   filter: brightness(1.1);
 }
 
+.retry-btn:active {
+  transform: scale(0.96);
+}
+
 /* "Showing X of Y" + Load More button below the grid */
 .load-more-wrap {
   text-align: center;
@@ -726,6 +1073,10 @@ main {
 }
 
 .load-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   padding: 0.7rem 3rem;
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -748,13 +1099,32 @@ main {
   transform: translateY(-2px);
 }
 
+.load-more:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
 .load-more:disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: wait;
 }
 
+/* Spinner shown inside the Load More button while fetching */
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ============================================================
-   MODAL — rich detail view
+   MODAL — rich detail view (opens from the clicked card via JS
+   Web Animations; content staggers in via .open)
    ============================================================ */
 .modal-overlay {
   position: fixed;
@@ -786,19 +1156,19 @@ main {
   overflow-y: auto;
   overflow-x: hidden;
   box-shadow: var(--shadow-lg);
-  animation: modalIn 0.35s var(--ease);
 }
 
-@keyframes modalIn {
-  from {
-    opacity: 0;
-    transform: translateY(28px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+/* Content stagger when the modal (re)opens */
+.modal.open .modal-info > * {
+  animation: fadeSlideIn 0.4s var(--ease) both;
 }
+
+.modal.open .modal-info > *:nth-child(1) { animation-delay: 0.06s; }
+.modal.open .modal-info > *:nth-child(2) { animation-delay: 0.1s; }
+.modal.open .modal-info > *:nth-child(3) { animation-delay: 0.14s; }
+.modal.open .modal-info > *:nth-child(4) { animation-delay: 0.18s; }
+.modal.open .modal-info > *:nth-child(5) { animation-delay: 0.22s; }
+.modal.open .modal-info > *:nth-child(6) { animation-delay: 0.26s; }
 
 .modal-close {
   position: absolute;
@@ -970,6 +1340,10 @@ main {
   transform: translateY(-2px);
 }
 
+.store-btn:active {
+  transform: scale(0.96);
+}
+
 /* Primary link (Steam for games, TMDB for movies/TV) */
 .store-btn.primary {
   background: var(--accent-gradient);
@@ -1028,6 +1402,10 @@ main {
   transform: translateY(-2px);
 }
 
+.provider-chip:active {
+  transform: scale(0.96);
+}
+
 .provider-chip img {
   width: 24px;
   height: 24px;
@@ -1045,8 +1423,19 @@ main {
   font-size: 0.84rem;
 }
 
+.footer a {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.footer a:hover {
+  color: #ff5b64;
+}
+
 /* ============================================================
-   REDUCED MOTION (accessibility)
+   REDUCED MOTION (accessibility) — kills all animation
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1059,6 +1448,10 @@ main {
 
   html {
     scroll-behavior: auto;
+  }
+
+  .card.reveal {
+    opacity: 1;
   }
 }
 
@@ -1075,8 +1468,8 @@ main {
     min-height: 360px;
   }
 
-  .hero-poster {
-    width: 120px;
+  .row-card {
+    flex-basis: 155px;
   }
 }
 
@@ -1099,9 +1492,14 @@ main {
     padding: 0.2rem;
   }
 
+  .nav-pill {
+    top: 0.2rem;
+    bottom: 0.2rem;
+  }
+
   .nav-link {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.82rem;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
   }
 
   .search-wrap {
@@ -1114,23 +1512,41 @@ main {
     padding: 1rem;
   }
 
-  /* Hero: shorter, text-first, poster hidden */
+  /* Hero: shorter, text-first */
   .hero,
   .hero-skeleton {
-    min-height: 300px;
+    min-height: 320px;
   }
 
   .hero-content {
     padding: 1.25rem;
   }
 
-  .hero-poster {
-    display: none;
-  }
-
   .hero-description {
     -webkit-line-clamp: 2;
     font-size: 0.88rem;
+  }
+
+  .hero-arrow {
+    display: none; /* dots + swipe-free auto-rotate on touch */
+  }
+
+  .hero-dots {
+    right: 50%;
+    transform: translateX(50%);
+  }
+
+  /* Home rows: slightly smaller cards */
+  .home-rows {
+    gap: 1.6rem;
+  }
+
+  .row-card {
+    flex-basis: 138px;
+  }
+
+  .row-head h2 {
+    font-size: 1.1rem;
   }
 
   /* Filters scroll horizontally in one row */
