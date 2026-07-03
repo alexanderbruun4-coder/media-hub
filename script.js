@@ -179,6 +179,7 @@ const loadMoreCount = document.getElementById("loadMoreCount");
 
 const modalOverlay = document.getElementById("modalOverlay");
 const modalClose = document.getElementById("modalClose");
+const modalBackdrop = document.getElementById("modalBackdrop");
 const modalImage = document.getElementById("modalImage");
 const modalCategory = document.getElementById("modalCategory");
 const modalTitle = document.getElementById("modalTitle");
@@ -206,6 +207,13 @@ function switchSection(sectionKey) {
 
   renderFilters();
   loadSection({ reset: true });
+
+  // Retrigger the section entrance animation (style.css .section-in)
+  const app = document.getElementById("app");
+  app.classList.remove("section-in");
+  void app.offsetWidth; // force reflow so the animation restarts
+  app.classList.add("section-in");
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -305,7 +313,7 @@ async function loadSection({ reset = false } = {}) {
     }
     state.items = [];
     state.page = 1;
-    showApiMessage(`<p class="loading-pulse">Loading ${cfg.noun}…</p>`);
+    renderSkeleton(state);
   } else {
     state.page += 1;
   }
@@ -583,6 +591,30 @@ function updateLoadMore() {
   loadMoreBtn.textContent = state.loading ? "Loading…" : "Load More";
 }
 
+/** Skeleton shimmer placeholders shown while a fresh page loads. */
+function renderSkeleton(state) {
+  emptyStateEl.classList.add("hidden");
+  loadMoreWrap.classList.add("hidden");
+  if (state.hero) {
+    renderHero(); // keep the real hero while the grid refreshes
+  } else {
+    heroEl.classList.remove("hidden");
+    heroEl.innerHTML = `<div class="hero-skeleton shimmer"></div>`;
+  }
+  gridEl.innerHTML = Array.from({ length: 12 })
+    .map(
+      (_, i) => `
+        <div class="card skeleton-card" style="animation-delay: ${i * 35}ms" aria-hidden="true">
+          <div class="skeleton-img shimmer"></div>
+          <div class="card-body">
+            <div class="skeleton-line shimmer"></div>
+            <div class="skeleton-line short shimmer"></div>
+          </div>
+        </div>`
+    )
+    .join("");
+}
+
 /** Replace the grid with a status/error message (spans full width). */
 function showApiMessage(html) {
   emptyStateEl.classList.add("hidden");
@@ -601,6 +633,7 @@ async function openDetailsModal(item) {
   const itemKey = `${item.kind}:${item.id}`;
   openModalItemKey = itemKey;
 
+  modalBackdrop.src = item.heroImage; // wide cinematic image up top
   modalTitle.textContent = item.title;
   modalCategory.textContent = item.tag;
   modalStores.innerHTML = "";
@@ -696,7 +729,7 @@ async function fillGameModal(item, itemKey) {
       `<span class="modal-stores-label">${escapeHtml(chosen.label)} price (USD):</span>
        <a class="store-btn price" href="${escapeHtml(chosen.url)}"
           target="_blank" rel="noopener noreferrer">
-         💰 ${priceText} on ${escapeHtml(chosen.label)}${was} ↗
+         ${priceText} on ${escapeHtml(chosen.label)}${was} ↗
        </a>`
     );
   } catch (err) {
@@ -844,7 +877,7 @@ async function fillTmdbModal(item, itemKey) {
       ? `<span class="modal-stores-label">In cinemas:</span>
          <a class="store-btn" target="_blank" rel="noopener noreferrer"
             href="https://www.google.com/search?q=${encodeURIComponent(item.title + " showtimes near me")}">
-           🎬 Showtimes near you ↗
+           Showtimes near you ↗
          </a>`
       : "";
   modalStores.innerHTML = `
