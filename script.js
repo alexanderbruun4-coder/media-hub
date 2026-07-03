@@ -133,7 +133,7 @@ const API_SECTIONS = {
     api: "rawg",
     noun: "games",
     heroLabel: "★ Featured Game",
-    searchPlaceholder: "Search the whole games database…",
+    searchPlaceholder: "Search games…",
     categories: [
       { label: "All", params: {} },
       { label: "Action", params: { genres: "action" } },
@@ -323,7 +323,7 @@ function apiKeyOk(api) {
 function keyHelpHtml(api) {
   if (api === "rawg") {
     return `
-      <h3>RAWG API key needed</h3>
+      <h3>Games API key needed</h3>
       <p>Open <code>script.js</code> and paste your key into
       <code>RAWG_API_KEY</code> in the CONFIG block at the top.</p>
       <p>Get a free key at
@@ -484,7 +484,7 @@ function normalizeGame(g) {
       : "—",
     image: g.background_image || FALLBACK_IMG,
     heroImage: g.background_image || FALLBACK_IMG,
-    description: `One of the most popular games on RAWG, rated ${(g.rating || 0).toFixed(1)}/5 by ${(g.ratings_count || 0).toLocaleString()} players. Click for details, platforms, and store links.`,
+    description: `One of the most popular games right now, rated ${(g.rating || 0).toFixed(1)}/5 by ${(g.ratings_count || 0).toLocaleString()} players. Click for details, platforms, and store links.`,
     raw: g,
   };
 }
