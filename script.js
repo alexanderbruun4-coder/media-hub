@@ -282,8 +282,35 @@ const sectionState = {
   tvshows: makeSectionState(),
 };
 
-// Games sort order (RAWG `ordering` values; persists while browsing)
-let gamesSort = "-added";
+/* Sort options per section (value → label). Games "trending" is a
+   virtual sort: RAWG popularity restricted to the last 18 months so
+   the feed isn't dominated by decade-old classics. */
+const SORT_OPTIONS = {
+  games: [
+    ["trending", "Trending"],
+    ["-added", "All-time popular"],
+    ["-rating", "Top rated"],
+    ["-released", "Newest"],
+    ["name", "Name A–Z"],
+  ],
+  movies: [
+    ["popularity.desc", "Most popular"],
+    ["vote_average.desc", "Top rated"],
+    ["primary_release_date.desc", "Newest"],
+    ["title.asc", "Name A–Z"],
+  ],
+  tvshows: [
+    ["popularity.desc", "Most popular"],
+    ["vote_average.desc", "Top rated"],
+    ["first_air_date.desc", "Newest"],
+    ["name.asc", "Name A–Z"],
+  ],
+};
+const sectionSort = {
+  games: "trending",
+  movies: "popularity.desc",
+  tvshows: "popularity.desc",
+};
 
 // Home landing page state (spotlight carousel + rows)
 const homeState = {
@@ -526,23 +553,22 @@ function renderFilters() {
     )
     .join("");
 
-  // Games get a sort control alongside the genre chips
-  const sortControl =
-    currentSection === "games"
-      ? `<label class="sort-wrap">
-           <span class="sort-label">Sort</span>
-           <select class="sort-select" id="sortSelect" aria-label="Sort games">
-             <option value="-added">Most popular</option>
-             <option value="-rating">Top rated</option>
-             <option value="-released">Newest</option>
-             <option value="name">Name A–Z</option>
-           </select>
-         </label>`
-      : "";
+  // Every browse section gets a sort control alongside the chips
+  const sortOptions = SORT_OPTIONS[currentSection];
+  const sortControl = sortOptions
+    ? `<label class="sort-wrap">
+         <span class="sort-label">Sort</span>
+         <select class="sort-select" id="sortSelect" aria-label="Sort ${API_SECTIONS[currentSection].noun}">
+           ${sortOptions
+             .map(([value, label]) => `<option value="${value}">${label}</option>`)
+             .join("")}
+         </select>
+       </label>`
+    : "";
 
   filtersEl.innerHTML = chips + sortControl;
   const select = document.getElementById("sortSelect");
-  if (select) select.value = gamesSort;
+  if (select) select.value = sectionSort[currentSection];
 }
 
 /* ============================================================
@@ -828,7 +854,7 @@ function keyHelpHtml(api) {
 }
 
 function snapshotKey() {
-  const sort = currentSection === "games" ? gamesSort : "";
+  const sort = sectionSort[currentSection] || "";
   return `${currentSection}|${currentCategory}|${searchQuery.trim().toLowerCase()}|${sort}`;
 }
 
@@ -943,7 +969,17 @@ async function loadSection({ reset = false } = {}) {
 
 /** Pure URL builder — shared by the Games section and Home, so both
     hit identical URLs and the fetch cache is shared. */
-function gamesListUrl(page, catParams = {}, query = "", ordering = "-added") {
+/** "YYYY-MM-DD,YYYY-MM-DD" window covering the last 18 months —
+    the date filter behind the "Trending" games sort. */
+function trendingWindow() {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const now = new Date();
+  const past = new Date(now);
+  past.setMonth(past.getMonth() - 18);
+  return `${iso(past)},${iso(now)}`;
+}
+
+function gamesListUrl(page, catParams = {}, query = "", ordering = "trending") {
   const params = new URLSearchParams({
     key: RAWG_API_KEY,
     page_size: String(PAGE_SIZE),
@@ -952,6 +988,11 @@ function gamesListUrl(page, catParams = {}, query = "", ordering = "-added") {
   for (const [k, v] of Object.entries(catParams)) params.set(k, v);
   if (query) {
     params.set("search", query); // RAWG ranks search results by relevance
+  } else if (ordering === "trending") {
+    // Popularity, but only recent titles — keeps decade-old classics
+    // from permanently owning the top of the feed
+    params.set("ordering", "-added");
+    params.set("dates", trendingWindow());
   } else {
     params.set("ordering", ordering);
   }
@@ -961,12 +1002,13 @@ function gamesListUrl(page, catParams = {}, query = "", ordering = "-added") {
 function buildGamesUrl(page) {
   const cat = activeCategory();
   const params = { ...((cat && cat.params) || {}) };
+  const sort = sectionSort.games;
   // Name/date sorts over the full 900k-game catalog surface junk
   // entries first — restrict them to Metacritic-scored games
-  if (!searchQuery.trim() && (gamesSort === "name" || gamesSort === "-released")) {
+  if (!searchQuery.trim() && (sort === "name" || sort === "-released")) {
     params.metacritic = "1,100";
   }
-  return gamesListUrl(page, params, searchQuery.trim(), gamesSort);
+  return gamesListUrl(page, params, searchQuery.trim(), sort);
 }
 
 function normalizeGame(g) {
@@ -1000,7 +1042,7 @@ async function fetchRawgPage(page) {
 /* ---------------- TMDB (movies + TV) ---------------- */
 
 /** Pure URL builder — shared by the sections and Home (cache reuse). */
-function tmdbListUrl(tmdbType, page, genreId = null, query = "") {
+function tmdbListUrl(tmdbType, page, genreId = null, query = "", sortBy = "popularity.desc") {
   const params = new URLSearchParams({
     api_key: TMDB_API_KEY,
     page: String(page),
@@ -1011,15 +1053,28 @@ function tmdbListUrl(tmdbType, page, genreId = null, query = "") {
     params.set("query", query);
     return `${TMDB_BASE}/search/${tmdbType}?${params.toString()}`;
   }
-  params.set("sort_by", "popularity.desc");
-  params.set("vote_count.gte", "100"); // keeps obscure junk out of "popular"
+  params.set("sort_by", sortBy);
+  // Vote-count floor keeps obscure junk out; rating/name/date sorts
+  // need a higher floor or the top fills with 10/10s nobody has seen
+  const floor = sortBy === "popularity.desc" ? 100 : sortBy === "vote_average.desc" ? 2000 : 200;
+  params.set("vote_count.gte", String(floor));
+  // "Newest" should mean released, not announced
+  const today = new Date().toISOString().slice(0, 10);
+  if (sortBy === "primary_release_date.desc") params.set("primary_release_date.lte", today);
+  if (sortBy === "first_air_date.desc") params.set("first_air_date.lte", today);
   if (genreId) params.set("with_genres", String(genreId));
   return `${TMDB_BASE}/discover/${tmdbType}?${params.toString()}`;
 }
 
 function buildTmdbUrl(cfg, tmdbPage) {
   const cat = activeCategory();
-  return tmdbListUrl(cfg.tmdbType, tmdbPage, cat && cat.genreId, searchQuery.trim());
+  return tmdbListUrl(
+    cfg.tmdbType,
+    tmdbPage,
+    cat && cat.genreId,
+    searchQuery.trim(),
+    sectionSort[currentSection] || "popularity.desc"
+  );
 }
 
 function normalizeTmdb(r, type) {
@@ -1616,30 +1671,59 @@ async function loadGameExtras(item, itemKey) {
   }
   shots = shots.slice(0, 8);
 
-  // Similar games — RAWG's suggested endpoint needs a paid key on
-  // some plans, so fall back to top games in the same genre
+  // Similar games — two real similarity signals combined:
+  // 1) the same franchise/series (strongest possible match)
+  // 2) games sharing the same genres AND gameplay tags (e.g.
+  //    open-world + third-person + crime), not just "popular in
+  //    the same genre"
   const cacheId = `similar:game:${g.id}`;
   let similar = detailsCache.get(cacheId);
   if (!similar) {
     let results = [];
     try {
-      const res = await fetchJson(
-        `${RAWG_BASE}/games/${g.id}/suggested?key=${RAWG_API_KEY}&page_size=10`
+      const series = await fetchJson(
+        `${RAWG_BASE}/games/${g.id}/game-series?key=${RAWG_API_KEY}&page_size=6`
       );
-      results = res.results || [];
+      results = (series.results || []).filter((x) => x.id !== g.id);
     } catch {}
-    if (results.length === 0) {
-      const slug = g.genres && g.genres[0] && g.genres[0].slug;
-      if (slug) {
-        try {
-          const res = await fetchJson(
-            `${RAWG_BASE}/games?key=${RAWG_API_KEY}&genres=${slug}&ordering=-added&page_size=11`
-          );
-          results = (res.results || []).filter((x) => x.id !== g.id).slice(0, 10);
-        } catch {}
+
+    try {
+      const genreSlugs = (g.genres || []).slice(0, 2).map((x) => x.slug).join(",");
+      // Skip infrastructure tags that say nothing about the gameplay
+      const GENERIC_TAGS = new Set([
+        "singleplayer", "multiplayer", "steam-achievements", "steam-cloud",
+        "full-controller-support", "controller", "steam-trading-cards",
+        "achievements", "co-op", "online-co-op", "cross-platform-multiplayer",
+        "stats", "overlay", "in-app-purchases", "cloud-saves",
+      ]);
+      const tagSlugs = (g.tags || [])
+        .filter((t) => t.language === "eng" && !GENERIC_TAGS.has(t.slug))
+        .slice(0, 3)
+        .map((t) => t.slug)
+        .join(",");
+
+      if (genreSlugs) {
+        const discover = (withTags) => {
+          const p = new URLSearchParams({
+            key: RAWG_API_KEY,
+            genres: genreSlugs,
+            ordering: "-added",
+            page_size: "12",
+          });
+          if (withTags && tagSlugs) p.set("tags", tagSlugs);
+          return fetchJson(`${RAWG_BASE}/games?${p.toString()}`);
+        };
+        const notSeen = (x) => x.id !== g.id && !results.some((r) => r.id === x.id);
+        let extra = ((await discover(true)).results || []).filter(notSeen);
+        if (results.length + extra.length < 5 && tagSlugs) {
+          // Tag combo too narrow — widen to genre-only matches
+          extra = ((await discover(false)).results || []).filter(notSeen);
+        }
+        results = results.concat(extra);
       }
-    }
-    similar = results.map(normalizeGame);
+    } catch {}
+
+    similar = results.slice(0, 10).map(normalizeGame);
     detailsCache.set(cacheId, similar);
   }
 
@@ -1710,6 +1794,42 @@ function countUpRating(el, target, { decimals = 0, prefix = "", suffix = "" } = 
 
 /* ---------------- Games (RAWG) modal ---------------- */
 
+/* Platform family → icon + short label (one consistent icon set) */
+const PLATFORM_META = {
+  pc: { icon: "monitor", label: "PC" },
+  playstation: { icon: "gamepad", label: "PlayStation" },
+  xbox: { icon: "gamepad", label: "Xbox" },
+  nintendo: { icon: "gamepad", label: "Nintendo" },
+  mac: { icon: "monitor", label: "Mac" },
+  linux: { icon: "monitor", label: "Linux" },
+  ios: { icon: "phone", label: "iOS" },
+  android: { icon: "phone", label: "Android" },
+  web: { icon: "globe", label: "Web" },
+};
+
+const PLATFORM_ICONS = {
+  monitor: '<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>',
+  gamepad: '<path d="M6 11.5h4m-2-2v4"/><path d="M15.2 10.5h.01M17.8 13h.01"/><path d="M17.3 6.5H6.7a4.6 4.6 0 0 0-4.5 5.6l.9 4.9a2.4 2.4 0 0 0 4.3 1l1.5-1.9h6.2l1.5 1.9a2.4 2.4 0 0 0 4.3-1l.9-4.9a4.6 4.6 0 0 0-4.5-5.6Z"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z"/>',
+};
+
+/** Platform chips with icons for the game modal. */
+function platformChipsHtml(parentPlatforms) {
+  return (parentPlatforms || [])
+    .map((p) => {
+      const meta = PLATFORM_META[p.platform.slug];
+      if (!meta) return `<span class="platform-chip">${escapeHtml(p.platform.name)}</span>`;
+      return `
+        <span class="platform-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PLATFORM_ICONS[meta.icon]}</svg>
+          ${escapeHtml(meta.label)}
+        </span>`;
+    })
+    .join("");
+}
+
 async function fillGameModal(item, itemKey) {
   const g = item.raw;
   modalImage.src = g.background_image || FALLBACK_IMG;
@@ -1724,9 +1844,7 @@ async function fillGameModal(item, itemKey) {
   } else {
     countUpRating(modalRating, g.rating || 0, { decimals: 1, prefix: "★ ", suffix: " / 5" });
   }
-  modalPlatforms.textContent = (g.parent_platforms || [])
-    .map((p) => p.platform.name)
-    .join(" · ");
+  modalPlatforms.innerHTML = platformChipsHtml(g.parent_platforms);
   modalDescription.textContent = "Loading details…";
 
   try {
@@ -2100,10 +2218,10 @@ filtersEl.addEventListener("click", (e) => {
   loadSection({ reset: true });
 });
 
-// Games sort dropdown
+// Sort dropdown (games, movies, TV)
 filtersEl.addEventListener("change", (e) => {
   if (e.target.id !== "sortSelect") return;
-  gamesSort = e.target.value;
+  sectionSort[currentSection] = e.target.value;
   loadSection({ reset: true });
 });
 
@@ -2228,6 +2346,29 @@ document.addEventListener("keydown", (e) => {
     );
     startSpotlightRotation();
   }
+});
+
+// "Surprise me": open a random title from everything loaded so far
+document.getElementById("surpriseBtn").addEventListener("click", async () => {
+  let pool = [
+    ...homeState.spotlight,
+    ...homeState.rows.flatMap((r) => r.items),
+    ...Object.values(sectionState).flatMap((s) => s.items),
+    ...favorites.values(),
+  ];
+  if (pool.length === 0) {
+    // Nothing loaded yet (e.g. landed straight on Settings) — pull
+    // the trending games page, which is cached anyway
+    try {
+      const data = await fetchJson(gamesListUrl(1));
+      pool = (data.results || []).map(normalizeGame);
+    } catch {
+      return;
+    }
+  }
+  const unique = [...new Map(pool.map((it) => [favKey(it), it])).values()];
+  const pick = unique[Math.floor(Math.random() * unique.length)];
+  if (pick) openDetailsModal(pick, document.getElementById("surpriseBtn"));
 });
 
 // Back-to-top button: fades in after scrolling, smooth-scrolls up

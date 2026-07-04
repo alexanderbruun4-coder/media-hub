@@ -413,6 +413,40 @@ img {
   filter: grayscale(1) brightness(1.6);
 }
 
+/* Round glass icon button (Surprise me) */
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.icon-btn:hover {
+  color: #fff;
+  background: var(--accent-gradient);
+  border-color: transparent;
+  transform: rotate(-12deg) scale(1.06);
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
 /* ============================================================
    MAIN LAYOUT + section transition
    ============================================================ */
@@ -1409,6 +1443,9 @@ main {
 }
 
 .modal-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
   color: var(--text-dim);
   font-size: 0.84rem;
   font-weight: 500;
@@ -1417,6 +1454,25 @@ main {
 
 .modal-platforms:empty {
   display: none;
+}
+
+/* Platform chips with icons (game modal) */
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.platform-chip svg {
+  width: 14px;
+  height: 14px;
 }
 
 .modal-description {
