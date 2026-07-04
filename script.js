@@ -92,6 +92,13 @@ function hexToRgba(hex, alpha) {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
+/** Darken a hex color by a 0–1 amount (for light-theme text contrast). */
+function darkenHex(hex, amount) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v) => Math.round(v * (1 - amount)).toString(16).padStart(2, "0");
+  return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
+}
+
 /** Push the current settings into the DOM (theme/motion/density
     attributes + accent custom properties). Safe to call anytime. */
 function applySettings() {
@@ -103,7 +110,12 @@ function applySettings() {
   const p = ACCENT_PRESETS[settings.accent] || ACCENT_PRESETS.crimson;
   const st = rootEl.style;
   st.setProperty("--accent", p.accent);
-  st.setProperty("--accent-bright", p.bright);
+  // "bright" is tuned for dark backgrounds; light theme needs a
+  // darkened accent to hit 4.5:1 (WCAG AA) on white surfaces
+  st.setProperty(
+    "--accent-bright",
+    settings.theme === "light" ? darkenHex(p.accent, 0.18) : p.bright
+  );
   st.setProperty("--accent-soft", hexToRgba(p.accent, 0.14));
   st.setProperty("--accent-glow", hexToRgba(p.accent, 0.35));
   st.setProperty("--accent-gradient", `linear-gradient(135deg, ${p.from} 0%, ${p.to} 100%)`);
