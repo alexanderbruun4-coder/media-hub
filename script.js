@@ -6,12 +6,31 @@
    - Movies    → TMDB (https://www.themoviedb.org)
    - TV Shows  → TMDB
    - Games     → RAWG (https://rawg.io)
+   - My List   → localStorage favorites
+   - Settings  → live theming/behavior preferences
 
    One shared engine handles fetching, pagination ("Load More"),
-   genre filters, search, caching, and rendering for the grid
-   sections — see API_SECTIONS below to tweak categories. The
-   Home section reuses the same fetch cache, so nothing is
+   genre filters, sorting, search, caching, and rendering for the
+   grid sections — see API_SECTIONS below to tweak categories.
+   The Home section reuses the same fetch cache, so nothing is
    downloaded twice.
+
+   FILE MAP (search for the banner comments):
+   1. CONFIG — API keys, region
+   2. SETTINGS — themes/accents/motion + persistence
+   3. Constants — genres, stores, sort options, section config
+   4. State & caches — per-section state, url/snapshot/details caches
+   5. FAVORITES — My List + JSON export/import
+   6. SECTION SWITCHING + nav pill
+   7. SETTINGS PANEL — rendering + controls
+   8. SHARED LOADER — fetch/paginate for grid sections
+   9. API ADAPTERS — RAWG + TMDB url builders & normalizers
+   10. HOME — spotlight carousel + horizontal rows
+   11. RENDERING — cards, hero, skeletons, empty/error states
+   12. SCROLL-REVEAL + CARD TILT
+   13. DETAIL MODAL — game/tmdb fills, prices, providers, extras
+   14. EVENT LISTENERS — all delegated wiring
+   15. UTILITIES + INIT
    ============================================================ */
 
 /* ============================================================
@@ -162,15 +181,8 @@ const STORE_NAMES = {
 };
 
 /* CheapShark (https://apidocs.cheapshark.com — free, no key) is used
-   for PC game prices. Their store ids → names: */
+   for PC game prices. */
 const CHEAPSHARK_BASE = "https://www.cheapshark.com/api/1.0";
-const CHEAPSHARK_STORES = {
-  1: "Steam", 2: "GamersGate", 3: "Green Man Gaming", 7: "GOG", 8: "Origin",
-  11: "Humble Store", 13: "Ubisoft Store", 15: "Fanatical", 21: "WinGameStore",
-  23: "GameBillet", 24: "Voidu", 25: "Epic Games", 27: "Gamesplanet",
-  28: "Gamesload", 29: "2Game", 30: "IndieGala", 31: "Blizzard",
-  33: "DLGamer", 34: "Noctre", 35: "DreamGame",
-};
 
 /* Stores we show prices for, in preference order. csStoreId is
    CheapShark's store id; rawgStoreId is RAWG's id for the same store
@@ -1355,7 +1367,7 @@ function rowCardHtml(item, rowKey, idx) {
   return `
     <article class="card row-card reveal" data-row="${rowKey}" data-idx="${idx}">
       <div class="card-image-wrap">
-        <img class="card-image" src="${item.image}"
+        <img class="card-image" src="${item.image}" width="342" height="513"
              alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" />
         <span class="card-tag">${escapeHtml(item.tag)}</span>
         ${favBtnHtml(item)}
@@ -1415,7 +1427,7 @@ function cardHtml(item) {
   return `
     <article class="card reveal" data-id="${item.id}" data-key="${favKey(item)}">
       <div class="card-image-wrap">
-        <img class="card-image" src="${item.image}"
+        <img class="card-image" src="${item.image}" width="342" height="513"
              alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" />
         <span class="card-tag">${escapeHtml(item.tag)}</span>
         ${favBtnHtml(item)}
@@ -1658,9 +1670,10 @@ async function openDetailsModal(item, sourceEl) {
 /** Small clickable card used in "Similar" / "More like this" rows. */
 function miniCardHtml(item) {
   modalExtraItems.set(favKey(item), item);
+  const dims = item.kind === "game" ? 'width="320" height="180"' : 'width="228" height="342"';
   return `
     <div class="mini-card ${item.kind}" data-key="${favKey(item)}" role="button" tabindex="0">
-      <img src="${item.image}" alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" />
+      <img src="${item.image}" ${dims} alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" />
       <span>${escapeHtml(item.title)}</span>
     </div>`;
 }
@@ -1745,7 +1758,7 @@ async function loadGameExtras(item, itemKey) {
          <h3>Screenshots</h3>
          <div class="shot-row">${shots
            .map(
-             (s) => `<img class="shot" src="${s.image}" data-full="${s.image}"
+             (s) => `<img class="shot" src="${s.image}" data-full="${s.image}" width="256" height="144"
                         alt="Screenshot" loading="lazy" decoding="async" />`
            )
            .join("")}</div>
@@ -2024,7 +2037,7 @@ function providerGroupHtml(label, providers, link) {
         (p) => `
           <a class="provider-chip" href="${escapeHtml(link)}"
              target="_blank" rel="noopener noreferrer">
-            <img src="${TMDB_IMG}/w45${p.logo_path}" alt="" loading="lazy" />
+            <img src="${TMDB_IMG}/w45${p.logo_path}" width="45" height="45" alt="" loading="lazy" decoding="async" />
             ${escapeHtml(p.provider_name)}
           </a>`
       )
