@@ -46,6 +46,100 @@
   --shadow-card: 0 14px 40px rgba(0, 0, 0, 0.45);
 
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Navbar glass (needs its own token so themes can restyle it) */
+  --nav-bg: rgba(10, 10, 15, 0.72);
+  --nav-bg-scrolled: rgba(5, 5, 9, 0.92);
+}
+
+/* ============================================================
+   THEMES — switched live from Settings via <html data-theme="…">
+   Only tokens change; components never hardcode surface colors.
+   Chrome that sits ON TOP of artwork (tags, hearts, hero text)
+   stays dark/light-fixed and is not themed.
+   ============================================================ */
+:root[data-theme="light"] {
+  --bg-deep: #e7e9ee;
+  --bg-base: #f4f5f8;
+  --bg-elevated: #ffffff;
+  --surface: rgba(18, 22, 32, 0.05);
+  --surface-hover: rgba(18, 22, 32, 0.09);
+  --border: rgba(18, 22, 32, 0.1);
+  --border-strong: rgba(18, 22, 32, 0.2);
+  --text: #171922;
+  --text-dim: #5b626f;
+  --shadow-lg: 0 24px 60px rgba(25, 30, 48, 0.18);
+  --shadow-card: 0 14px 40px rgba(25, 30, 48, 0.1);
+  --nav-bg: rgba(248, 249, 251, 0.78);
+  --nav-bg-scrolled: rgba(255, 255, 255, 0.94);
+  color-scheme: light;
+}
+
+:root[data-theme="amoled"] {
+  --bg-deep: #000000;
+  --bg-base: #000000;
+  --bg-elevated: #0a0a0d;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --nav-bg: rgba(0, 0, 0, 0.8);
+  --nav-bg-scrolled: rgba(0, 0, 0, 0.95);
+}
+
+/* Light theme: hide the ambient color blobs (they muddy light bg) */
+:root[data-theme="light"] body::before,
+:root[data-theme="light"] body::after {
+  opacity: 0.5;
+}
+
+/* ============================================================
+   CARD DENSITY — <html data-cards="…"> from Settings
+   ============================================================ */
+:root[data-cards="compact"] .grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+:root[data-cards="large"] .grid {
+  grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+  gap: 1.7rem;
+}
+
+:root[data-cards="compact"] .row-card {
+  flex-basis: 140px;
+}
+
+:root[data-cards="large"] .row-card {
+  flex-basis: 205px;
+}
+
+/* ============================================================
+   MOTION LEVELS — <html data-motion="…"> from Settings
+   ("off" mirrors the prefers-reduced-motion block below;
+   "reduced" keeps quick fades but drops ambient/decorative motion)
+   ============================================================ */
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+:root[data-motion="off"] .card.reveal {
+  opacity: 1;
+}
+
+:root[data-motion="reduced"] .hero-bg.kenburns,
+:root[data-motion="reduced"] .hero--spotlight .hero-bg[data-active] {
+  animation: none;
+}
+
+:root[data-motion="reduced"] .anim-item {
+  animation-duration: 0.2s;
+}
+
+:root[data-motion="reduced"] .card.reveal.visible {
+  animation-duration: 0.25s;
 }
 
 /* ---------- Reset & base ---------- */
@@ -140,7 +234,7 @@ img {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(10, 10, 15, 0.72);
+  background: var(--nav-bg);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border-bottom: 1px solid var(--border);
@@ -148,8 +242,21 @@ img {
 }
 
 .navbar.scrolled {
-  background: rgba(5, 5, 9, 0.92);
+  background: var(--nav-bg-scrolled);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Icon-only nav item (Settings gear) */
+.nav-link--icon {
+  display: inline-grid;
+  place-items: center;
+  padding: 0.4rem 0.7rem;
+}
+
+.nav-link--icon svg {
+  width: 17px;
+  height: 17px;
+  display: block;
 }
 
 .navbar-inner {
@@ -387,6 +494,7 @@ main {
 .hero-content {
   position: relative;
   z-index: 1;
+  color: #ededf0; /* always light — sits on the dark artwork overlay */
   display: flex;
   align-items: flex-end;
   gap: 1.75rem;
@@ -455,9 +563,9 @@ main {
   padding: 0.22rem 0.7rem;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(6px);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  color: var(--text);
+  color: #ededf0; /* fixed — sits on artwork */
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -911,9 +1019,9 @@ main {
   padding: 0.22rem 0.7rem;
   background: rgba(5, 5, 8, 0.72);
   backdrop-filter: blur(8px);
-  border: 1px solid var(--border-strong);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  color: var(--text);
+  color: #ededf0; /* fixed — sits on artwork */
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1434,6 +1542,174 @@ main {
   width: 24px;
   height: 24px;
   border-radius: 7px;
+}
+
+/* ============================================================
+   SETTINGS PANEL
+   ============================================================ */
+.settings-panel {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.settings-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.4rem;
+}
+
+.settings-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.5rem 0.6rem;
+  margin-bottom: 1.4rem;
+}
+
+.settings-group h2 {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.95rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.setting-row:first-of-type {
+  border-top: none;
+}
+
+.setting-info h3 {
+  font-size: 0.97rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.setting-info p {
+  font-size: 0.83rem;
+  color: var(--text-dim);
+}
+
+/* Segmented control (radio group) */
+.segmented {
+  display: inline-flex;
+  padding: 0.22rem;
+  gap: 0.2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.segmented button {
+  padding: 0.38rem 0.95rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button.active {
+  background: var(--accent-gradient);
+  color: #fff;
+  box-shadow: 0 3px 14px var(--accent-glow);
+}
+
+/* Accent swatches */
+.swatches {
+  display: inline-flex;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+}
+
+.swatch.active {
+  box-shadow: 0 0 0 2px var(--bg-elevated), 0 0 0 4px var(--text);
+}
+
+/* Toggle switch */
+.switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-hover);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-med) var(--ease),
+    border-color var(--t-med) var(--ease);
+}
+
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform var(--t-med) var(--ease),
+    background var(--t-med) var(--ease);
+}
+
+.switch.on {
+  background: var(--accent-gradient);
+  border-color: transparent;
+}
+
+.switch.on .switch-knob {
+  transform: translateX(20px);
+  background: #fff;
+}
+
+.setting-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.tool-btn.danger:hover {
+  border-color: var(--accent);
+  color: var(--accent-bright);
 }
 
 /* ============================================================
@@ -1968,5 +2244,30 @@ main {
 
   .sort-wrap {
     flex-shrink: 0;
+  }
+
+  /* Settings panel: rows stack vertically on phones */
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.7rem;
+  }
+
+  .settings-group {
+    padding: 1.1rem 1.1rem 0.4rem;
+  }
+
+  .segmented,
+  .swatches,
+  .setting-actions {
+    align-self: stretch;
+  }
+
+  .segmented {
+    display: flex;
+  }
+
+  .segmented button {
+    flex: 1;
   }
 }

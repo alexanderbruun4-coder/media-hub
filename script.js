@@ -44,9 +44,85 @@ const HOME_SPOTLIGHT_COUNT = 5; // rotating hero slides
 const HOME_ROW_COUNT = 12;      // cards per horizontal row
 const HOME_ROTATE_MS = 6000;    // spotlight auto-rotate interval
 
-// Respect the user's motion preference everywhere (JS-driven motion;
-// CSS animations are disabled separately in style.css)
-const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* ============================================================
+   SETTINGS — theme, accent, motion, density, autoplay, landing.
+   Persisted to localStorage; applied live via data-attributes on
+   <html> plus CSS custom properties (see style.css theme blocks).
+   ============================================================ */
+const SETTINGS_KEY = "fliqora-settings";
+const LAST_SECTION_KEY = "fliqora-last-section";
+
+/* Accent presets: base color + readable-on-dark variant + gradient stops */
+const ACCENT_PRESETS = {
+  crimson: { label: "Crimson", accent: "#e50914", bright: "#ff5b64", from: "#ff2d3f", to: "#c4080f" },
+  violet:  { label: "Violet",  accent: "#7c3aed", bright: "#a78bfa", from: "#8b5cf6", to: "#6d28d9" },
+  blue:    { label: "Blue",    accent: "#2563eb", bright: "#60a5fa", from: "#3b82f6", to: "#1d4ed8" },
+  emerald: { label: "Emerald", accent: "#059669", bright: "#34d399", from: "#10b981", to: "#047857" },
+  amber:   { label: "Amber",   accent: "#d97706", bright: "#fbbf24", from: "#f59e0b", to: "#b45309" },
+  pink:    { label: "Pink",    accent: "#db2777", bright: "#f472b6", from: "#ec4899", to: "#be185d" },
+};
+
+const DEFAULT_SETTINGS = {
+  theme: "dark",      // dark | light | amoled
+  accent: "crimson",  // key into ACCENT_PRESETS
+  motion: "on",       // on | reduced | off
+  cardSize: "normal", // compact | normal | large
+  autoplay: true,     // hero spotlight auto-rotate
+  landing: "auto",    // auto (= last visited) | home | movies | games | tvshows
+};
+let settings = { ...DEFAULT_SETTINGS };
+
+function loadSettings() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    for (const k of Object.keys(DEFAULT_SETTINGS)) {
+      if (k in stored) settings[k] = stored[k];
+    }
+  } catch {}
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {}
+}
+
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/** Push the current settings into the DOM (theme/motion/density
+    attributes + accent custom properties). Safe to call anytime. */
+function applySettings() {
+  const rootEl = document.documentElement;
+  rootEl.dataset.theme = settings.theme;
+  rootEl.dataset.motion = settings.motion;
+  rootEl.dataset.cards = settings.cardSize;
+
+  const p = ACCENT_PRESETS[settings.accent] || ACCENT_PRESETS.crimson;
+  const st = rootEl.style;
+  st.setProperty("--accent", p.accent);
+  st.setProperty("--accent-bright", p.bright);
+  st.setProperty("--accent-soft", hexToRgba(p.accent, 0.14));
+  st.setProperty("--accent-glow", hexToRgba(p.accent, 0.35));
+  st.setProperty("--accent-gradient", `linear-gradient(135deg, ${p.from} 0%, ${p.to} 100%)`);
+
+  // Autoplay / motion changes affect the running spotlight
+  if (typeof homeState !== "undefined" && currentSection === "home") {
+    startSpotlightRotation();
+  }
+}
+
+/** Effective motion level: user setting, then OS preference. */
+function motionLevel() {
+  if (settings.motion === "off") return "off";
+  if (settings.motion === "reduced") return "reduced";
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "off" : "on";
+}
+const motionOff = () => motionLevel() === "off";
+const motionFull = () => motionLevel() === "on";
+const scrollMode = () => (motionOff() ? "auto" : "smooth");
 
 /* TMDB genre ids are fixed constants — used to translate each
    item's genre_ids into a display name for the card tag. */
@@ -117,6 +193,13 @@ const API_SECTIONS = {
     noun: "favorites",
     heroLabel: "",
     searchPlaceholder: "Search your list…",
+    categories: [],
+  },
+  settings: {
+    api: null,
+    noun: "settings",
+    heroLabel: "",
+    searchPlaceholder: "Search…",
     categories: [],
   },
   movies: {
@@ -193,6 +276,7 @@ function makeSectionState() {
 const sectionState = {
   home: makeSectionState(),
   mylist: makeSectionState(),
+  settings: makeSectionState(),
   movies: makeSectionState(),
   games: makeSectionState(),
   tvshows: makeSectionState(),
@@ -324,6 +408,7 @@ function importFavorites(file) {
 const navbarEl = document.getElementById("navbar");
 const heroEl = document.getElementById("hero");
 const homeRowsEl = document.getElementById("homeRows");
+const settingsPanel = document.getElementById("settingsPanel");
 const filtersEl = document.getElementById("filters");
 const gridEl = document.getElementById("grid");
 const emptyStateEl = document.getElementById("emptyState");
@@ -363,23 +448,38 @@ function switchSection(sectionKey) {
   const cfg = API_SECTIONS[sectionKey];
   const isHome = sectionKey === "home";
   const isMyList = sectionKey === "mylist";
+  const isSettings = sectionKey === "settings";
   searchInput.placeholder = cfg.searchPlaceholder;
-  searchInput.disabled = isHome; // search targets a specific database
+  searchInput.disabled = isHome || isSettings; // search targets a specific list
 
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.classList.toggle("active", link.dataset.section === sectionKey);
   });
   positionNavPill();
 
+  // Remember where the user was (feeds the "Last visited" landing option)
+  if (!isSettings) {
+    try {
+      localStorage.setItem(LAST_SECTION_KEY, sectionKey);
+    } catch {}
+  }
+
   stopSpotlightRotation();
   homeRowsEl.classList.toggle("hidden", !isHome);
-  filtersEl.classList.toggle("hidden", isHome);
-  gridEl.classList.toggle("hidden", isHome);
+  settingsPanel.classList.toggle("hidden", !isSettings);
+  filtersEl.classList.toggle("hidden", isHome || isSettings);
+  gridEl.classList.toggle("hidden", isHome || isSettings);
 
   if (isHome) {
     emptyStateEl.classList.add("hidden");
     loadMoreWrap.classList.add("hidden");
     loadHome();
+  } else if (isSettings) {
+    heroEl.classList.add("hidden");
+    heroEl.classList.remove("hero--spotlight");
+    emptyStateEl.classList.add("hidden");
+    loadMoreWrap.classList.add("hidden");
+    renderSettings();
   } else if (isMyList) {
     heroEl.classList.add("hidden");
     heroEl.classList.remove("hero--spotlight");
@@ -398,7 +498,7 @@ function switchSection(sectionKey) {
   void app.offsetWidth; // force reflow so the animation restarts
   app.classList.add("section-in");
 
-  window.scrollTo({ top: 0, behavior: REDUCED_MOTION ? "auto" : "smooth" });
+  window.scrollTo({ top: 0, behavior: scrollMode() });
 }
 
 /* Sliding pill behind the active nav link */
@@ -443,6 +543,219 @@ function renderFilters() {
   filtersEl.innerHTML = chips + sortControl;
   const select = document.getElementById("sortSelect");
   if (select) select.value = gamesSort;
+}
+
+/* ============================================================
+   SETTINGS PANEL — rendered from the current `settings` object;
+   every control writes back, applies live, and persists.
+   ============================================================ */
+
+function segmentedHtml(key, options, label) {
+  return `
+    <div class="segmented" data-setting="${key}" role="radiogroup" aria-label="${escapeHtml(label)}">
+      ${options
+        .map(
+          ([value, text]) => `
+          <button type="button" data-value="${value}" role="radio"
+                  aria-checked="${String(settings[key]) === value}"
+                  class="${String(settings[key]) === value ? "active" : ""}">${escapeHtml(text)}</button>`
+        )
+        .join("")}
+    </div>`;
+}
+
+function settingRowHtml(title, desc, controlHtml) {
+  return `
+    <div class="setting-row">
+      <div class="setting-info">
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(desc)}</p>
+      </div>
+      ${controlHtml}
+    </div>`;
+}
+
+function renderSettings() {
+  settingsPanel.innerHTML = `
+    <h1 class="settings-title">Settings</h1>
+
+    <section class="settings-group">
+      <h2>Appearance</h2>
+      ${settingRowHtml(
+        "Theme",
+        "Overall look of the site",
+        segmentedHtml("theme", [["dark", "Dark"], ["light", "Light"], ["amoled", "AMOLED"]], "Theme")
+      )}
+      ${settingRowHtml(
+        "Accent color",
+        "Buttons, highlights and active states",
+        `<div class="swatches" data-setting="accent" role="radiogroup" aria-label="Accent color">
+           ${Object.entries(ACCENT_PRESETS)
+             .map(
+               ([key, p]) => `
+               <button type="button" class="swatch ${settings.accent === key ? "active" : ""}"
+                       data-value="${key}" role="radio" aria-checked="${settings.accent === key}"
+                       aria-label="${p.label}" title="${p.label}"
+                       style="background: linear-gradient(135deg, ${p.from}, ${p.to})"></button>`
+             )
+             .join("")}
+         </div>`
+      )}
+      ${settingRowHtml(
+        "Card size",
+        "How dense the browse grids are",
+        segmentedHtml("cardSize", [["compact", "Compact"], ["normal", "Normal"], ["large", "Large"]], "Card size")
+      )}
+    </section>
+
+    <section class="settings-group">
+      <h2>Behavior</h2>
+      ${settingRowHtml(
+        "Animations",
+        "Motion across the whole site",
+        segmentedHtml("motion", [["on", "On"], ["reduced", "Reduced"], ["off", "Off"]], "Animations")
+      )}
+      ${settingRowHtml(
+        "Autoplay spotlight",
+        "Rotate the Home hero every 6 seconds",
+        `<button type="button" class="switch ${settings.autoplay ? "on" : ""}" data-setting="autoplay"
+                 role="switch" aria-checked="${settings.autoplay}" aria-label="Autoplay spotlight">
+           <span class="switch-knob"></span>
+         </button>`
+      )}
+      ${settingRowHtml(
+        "Open the site on",
+        "Which section loads first",
+        `<select class="sort-select" data-setting="landing" aria-label="Default landing section">
+           <option value="auto" ${settings.landing === "auto" ? "selected" : ""}>Last visited</option>
+           <option value="home" ${settings.landing === "home" ? "selected" : ""}>Home</option>
+           <option value="movies" ${settings.landing === "movies" ? "selected" : ""}>Movies</option>
+           <option value="games" ${settings.landing === "games" ? "selected" : ""}>Games</option>
+           <option value="tvshows" ${settings.landing === "tvshows" ? "selected" : ""}>TV Shows</option>
+         </select>`
+      )}
+    </section>
+
+    <section class="settings-group">
+      <h2>Data</h2>
+      ${settingRowHtml(
+        "Settings backup",
+        "Move your preferences to another device",
+        `<div class="setting-actions">
+           <button type="button" class="filter-btn tool-btn" id="exportSettings">Export JSON</button>
+           <button type="button" class="filter-btn tool-btn" id="importSettings">Import</button>
+         </div>`
+      )}
+      ${settingRowHtml(
+        "My List backup",
+        `${favorites.size} saved title${favorites.size === 1 ? "" : "s"}`,
+        `<div class="setting-actions">
+           <button type="button" class="filter-btn tool-btn" id="exportFavsSettings">Export JSON</button>
+           <button type="button" class="filter-btn tool-btn" id="importFavsSettings">Import</button>
+         </div>`
+      )}
+      ${settingRowHtml(
+        "Reset",
+        "Back to the default look and behavior",
+        `<div class="setting-actions">
+           <button type="button" class="filter-btn tool-btn danger" id="resetSettings">Reset settings</button>
+         </div>`
+      )}
+    </section>`;
+}
+
+/* What the hidden file input should import next: favorites or settings */
+let importTarget = "favorites";
+
+settingsPanel.addEventListener("click", (e) => {
+  // Segmented controls + accent swatches
+  const option = e.target.closest("[data-setting] [data-value]");
+  if (option) {
+    const group = option.closest("[data-setting]");
+    const key = group.dataset.setting;
+    settings[key] = option.dataset.value;
+    group.querySelectorAll("[data-value]").forEach((b) => {
+      const on = b === option;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", String(on));
+    });
+    applySettings();
+    saveSettings();
+    return;
+  }
+  // Autoplay switch
+  const sw = e.target.closest(".switch[data-setting='autoplay']");
+  if (sw) {
+    settings.autoplay = !settings.autoplay;
+    sw.classList.toggle("on", settings.autoplay);
+    sw.setAttribute("aria-checked", String(settings.autoplay));
+    applySettings();
+    saveSettings();
+    return;
+  }
+  // Data buttons
+  if (e.target.closest("#exportSettings")) {
+    downloadJson(settings, "fliqora-settings.json");
+    return;
+  }
+  if (e.target.closest("#importSettings")) {
+    importTarget = "settings";
+    document.getElementById("importInput").click();
+    return;
+  }
+  if (e.target.closest("#exportFavsSettings")) {
+    exportFavorites();
+    return;
+  }
+  if (e.target.closest("#importFavsSettings")) {
+    importTarget = "favorites";
+    document.getElementById("importInput").click();
+    return;
+  }
+  if (e.target.closest("#resetSettings")) {
+    settings = { ...DEFAULT_SETTINGS };
+    applySettings();
+    saveSettings();
+    renderSettings();
+  }
+});
+
+settingsPanel.addEventListener("change", (e) => {
+  const select = e.target.closest("select[data-setting]");
+  if (!select) return;
+  settings[select.dataset.setting] = select.value;
+  applySettings();
+  saveSettings();
+});
+
+/** Download any object as a JSON file. */
+function downloadJson(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/** Merge an exported settings file and apply it. */
+function importSettings(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const obj = JSON.parse(reader.result);
+      if (typeof obj !== "object" || Array.isArray(obj)) throw new Error("bad");
+      for (const k of Object.keys(DEFAULT_SETTINGS)) {
+        if (k in obj) settings[k] = obj[k];
+      }
+      applySettings();
+      saveSettings();
+      if (currentSection === "settings") renderSettings();
+    } catch {
+      alert("That file doesn't look like a Fliqora settings export.");
+    }
+  };
+  reader.readAsText(file);
 }
 
 /** My List replaces the filter row with export/import tools. */
@@ -950,13 +1263,13 @@ function setSpotlight(i) {
   if (bar) {
     bar.classList.remove("run");
     void bar.offsetWidth;
-    if (!REDUCED_MOTION && homeState.spotlight.length > 1) bar.classList.add("run");
+    if (!motionOff() && settings.autoplay && homeState.spotlight.length > 1) bar.classList.add("run");
   }
 }
 
 function startSpotlightRotation() {
   stopSpotlightRotation();
-  if (REDUCED_MOTION || homeState.spotlight.length < 2) return;
+  if (motionOff() || !settings.autoplay || homeState.spotlight.length < 2) return;
   homeState.timer = setInterval(() => {
     // Don't advance while the tab is hidden or a modal is open
     if (document.hidden || !modalOverlay.classList.contains("hidden")) return;
@@ -1201,7 +1514,7 @@ function observeReveals(container) {
   const els = container.querySelectorAll(".reveal:not(.visible)");
   els.forEach((el, i) => {
     el.style.setProperty("--reveal-delay", `${Math.min((i % 10) * 40, 360)}ms`);
-    if (revealObserver && !REDUCED_MOTION) {
+    if (revealObserver && !motionOff()) {
       revealObserver.observe(el);
     } else {
       el.classList.add("visible");
@@ -1214,7 +1527,7 @@ function observeReveals(container) {
    ============================================================ */
 
 function initCardTilt() {
-  if (REDUCED_MOTION || !window.matchMedia("(pointer: fine)").matches) return;
+  if (!window.matchMedia("(pointer: fine)").matches) return; // motion gate is per-event (settings can change live)
   let rafId = null;
 
   document.addEventListener(
@@ -1379,7 +1692,7 @@ async function loadTmdbExtras(item, itemKey) {
 /** Animated rating count-up (transform-free, text only). */
 function countUpRating(el, target, { decimals = 0, prefix = "", suffix = "" } = {}) {
   const final = `${prefix}${Number(target).toFixed(decimals)}${suffix}`;
-  if (REDUCED_MOTION || !target) {
+  if (motionOff() || !target) {
     el.textContent = final;
     return;
   }
@@ -1726,7 +2039,7 @@ function showModal(sourceEl) {
   modalBox.scrollTop = 0;
 
   // Animate from the clicked card toward the center (transform+opacity only)
-  if (!REDUCED_MOTION && sourceEl && modalBox.animate) {
+  if (!motionOff() && sourceEl && modalBox.animate) {
     const rect = sourceEl.getBoundingClientRect();
     const dx = rect.left + rect.width / 2 - window.innerWidth / 2;
     const dy = rect.top + rect.height / 2 - window.innerHeight / 2;
@@ -1794,10 +2107,14 @@ filtersEl.addEventListener("change", (e) => {
   loadSection({ reset: true });
 });
 
-// My List import file picker
+// Shared import file picker (routes to favorites or settings)
 document.getElementById("importInput").addEventListener("change", (e) => {
   const file = e.target.files && e.target.files[0];
-  if (file) importFavorites(file);
+  if (file) {
+    if (importTarget === "settings") importSettings(file);
+    else importFavorites(file);
+  }
+  importTarget = "favorites";
   e.target.value = ""; // allow re-importing the same file
 });
 
@@ -1851,7 +2168,7 @@ homeRowsEl.addEventListener("click", (e) => {
     const scroller = arrow.parentElement.querySelector(".row-scroller");
     scroller.scrollBy({
       left: Number(arrow.dataset.dir) * scroller.clientWidth * 0.85,
-      behavior: REDUCED_MOTION ? "auto" : "smooth",
+      behavior: scrollMode(),
     });
     return;
   }
@@ -1876,7 +2193,7 @@ modalExtra.addEventListener("click", (e) => {
   const shot = e.target.closest(".shot");
   if (shot) {
     modalBackdrop.src = shot.dataset.full;
-    modalBox.scrollTo({ top: 0, behavior: REDUCED_MOTION ? "auto" : "smooth" });
+    modalBox.scrollTo({ top: 0, behavior: scrollMode() });
     return;
   }
   const mini = e.target.closest(".mini-card");
@@ -1916,7 +2233,7 @@ document.addEventListener("keydown", (e) => {
 // Back-to-top button: fades in after scrolling, smooth-scrolls up
 const backToTopBtn = document.getElementById("backToTop");
 backToTopBtn.addEventListener("click", () => {
-  window.scrollTo({ top: 0, behavior: REDUCED_MOTION ? "auto" : "smooth" });
+  window.scrollTo({ top: 0, behavior: scrollMode() });
 });
 
 // Navbar darkens once the page is scrolled
@@ -1959,8 +2276,25 @@ function truncate(str, n = 600) {
 }
 
 /* ============================================================
-   INIT — Home is the landing section
+   INIT — apply saved settings, then open the landing section
+   (user's chosen default, or wherever they left off)
    ============================================================ */
+loadSettings();
+applySettings();
 loadFavorites();
 initCardTilt();
-switchSection(currentSection);
+
+let landingSection =
+  settings.landing === "auto"
+    ? (() => {
+        try {
+          return localStorage.getItem(LAST_SECTION_KEY) || "home";
+        } catch {
+          return "home";
+        }
+      })()
+    : settings.landing;
+if (!API_SECTIONS[landingSection] || landingSection === "settings") {
+  landingSection = "home";
+}
+switchSection(landingSection);
