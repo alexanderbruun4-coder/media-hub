@@ -882,7 +882,8 @@ main {
 
   /* Touch targets ≥44px on touch devices (Apple HIG / Material) */
   .fav-btn,
-  .modal-close {
+  .modal-close,
+  .icon-btn {
     width: 44px;
     height: 44px;
   }
@@ -892,6 +893,34 @@ main {
     box-sizing: content-box;
     padding: 8px;
     background-clip: content-box;
+  }
+
+  /* Settings controls grow to comfortable touch sizes */
+  .segmented button {
+    min-height: 42px;
+  }
+
+  .swatch {
+    width: 40px;
+    height: 40px;
+  }
+
+  .switch {
+    width: 58px;
+    height: 34px;
+  }
+
+  .switch-knob {
+    width: 26px;
+    height: 26px;
+  }
+
+  .switch.on .switch-knob {
+    transform: translateX(24px);
+  }
+
+  .sort-select {
+    min-height: 42px;
   }
 }
 
