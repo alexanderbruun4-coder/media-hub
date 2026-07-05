@@ -1054,10 +1054,20 @@ function normalizeGame(g) {
   };
 }
 
+/** RAWG's community database is full of fan remakes, asset flips
+    and placeholder entries. Junk signature: no artwork at all, OR
+    a title that essentially nobody tracks, no critic score, AND no
+    community rating (a real-but-obscure game still has a rating, so
+    this keeps niche legit titles while dropping placeholders). */
+function isJunkGame(g) {
+  if (!g.background_image) return true;
+  return (g.added || 0) < 15 && !g.metacritic && !g.rating;
+}
+
 async function fetchRawgPage(page) {
   const data = await fetchJson(buildGamesUrl(page));
   return {
-    items: (data.results || []).map(normalizeGame),
+    items: (data.results || []).filter((g) => !isJunkGame(g)).map(normalizeGame),
     hasMore: Boolean(data.next),
     totalCount: data.count || 0,
   };
@@ -1181,7 +1191,9 @@ async function loadHome() {
     r.status === "fulfilled" ? r.value : null
   );
 
-  const gameItems = games ? (games.results || []).map(normalizeGame) : [];
+  const gameItems = games
+    ? (games.results || []).filter((g) => !isJunkGame(g)).map(normalizeGame)
+    : [];
   homeState.spotlight = gameItems.slice(0, HOME_SPOTLIGHT_COUNT);
   homeState.rows = [
     {
@@ -1709,7 +1721,7 @@ async function loadGameExtras(item, itemKey) {
     // Weed out mods, fan projects, and shovelware that RAWG's
     // community database mixes in (e.g. "San Andreas Multiplayer")
     const isRealGame = (x) =>
-      Boolean(x.background_image) &&
+      !isJunkGame(x) &&
       Boolean(x.released) &&
       !/multiplayer|\bmods?\b|sa-mp|\bdlc\b|fan.?made|\bdemo\b/i.test(x.name || "");
 
