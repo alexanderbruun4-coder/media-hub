@@ -1696,54 +1696,87 @@ async function loadGameExtras(item, itemKey) {
   }
   shots = shots.slice(0, 8);
 
-  // Similar games — two real similarity signals combined:
+  // Similar games — only REAL similarity signals, never padding:
   // 1) the same franchise/series (strongest possible match)
   // 2) games sharing the same genres AND gameplay tags (e.g.
-  //    open-world + third-person + crime), not just "popular in
-  //    the same genre"
+  //    open-world + third-person + crime)
+  // If those produce few results, the list is simply short (or the
+  // section is hidden) — no backfilling with "popular in the same
+  // genre" titles that aren't actually similar.
   const cacheId = `similar:game:${g.id}`;
   let similar = detailsCache.get(cacheId);
   if (!similar) {
+    // Weed out mods, fan projects, and shovelware that RAWG's
+    // community database mixes in (e.g. "San Andreas Multiplayer")
+    const isRealGame = (x) =>
+      Boolean(x.background_image) &&
+      Boolean(x.released) &&
+      !/multiplayer|\bmods?\b|sa-mp|\bdlc\b|fan.?made|\bdemo\b/i.test(x.name || "");
+
     let results = [];
     try {
       const series = await fetchJson(
-        `${RAWG_BASE}/games/${g.id}/game-series?key=${RAWG_API_KEY}&page_size=6`
+        `${RAWG_BASE}/games/${g.id}/game-series?key=${RAWG_API_KEY}&page_size=8`
       );
-      results = (series.results || []).filter((x) => x.id !== g.id);
+      results = (series.results || []).filter((x) => x.id !== g.id && isRealGame(x));
     } catch {}
 
     try {
       const genreSlugs = (g.genres || []).slice(0, 2).map((x) => x.slug).join(",");
-      // Skip infrastructure tags that say nothing about the gameplay
+      // Skip tags that say nothing about the actual gameplay:
+      // infrastructure tags AND broad mood tags ("atmospheric",
+      // "great soundtrack") that every popular game carries —
+      // those were matching The Witcher 3 as "similar" to GTA V
       const GENERIC_TAGS = new Set([
+        // infrastructure
         "singleplayer", "multiplayer", "steam-achievements", "steam-cloud",
         "full-controller-support", "controller", "steam-trading-cards",
-        "achievements", "co-op", "online-co-op", "cross-platform-multiplayer",
-        "stats", "overlay", "in-app-purchases", "cloud-saves",
+        "achievements", "stats", "overlay", "in-app-purchases", "cloud-saves",
+        "steam-workshop", "benchmark", "moddable",
+        // co-op/perspective variants — shared by wildly different games
+        "co-op", "online-co-op", "cross-platform-multiplayer", "cooperative",
+        "local-co-op", "local-multiplayer", "online-multiplayer",
+        "first-person", "third-person", "3d",
+        // broad mood tags every popular game carries
+        "atmospheric", "great-soundtrack", "soundtrack", "story-rich",
+        "classic", "cult-classic", "funny", "masterpiece", "beautiful", "epic",
+        "comedy", "dark", "colorful",
+        // near-universal descriptors that leak unrelated titles
+        // ("sandbox" co-occurs with open-world on everything)
+        "sandbox", "vr-mod", "physics",
+        // duplicates of the genre filter
+        "rpg", "action", "adventure", "indie", "strategy", "simulation",
       ]);
-      const tagSlugs = (g.tags || [])
+      const tagList = (g.tags || [])
         .filter((t) => t.language === "eng" && !GENERIC_TAGS.has(t.slug))
         .slice(0, 3)
-        .map((t) => t.slug)
-        .join(",");
+        .map((t) => t.slug);
 
-      if (genreSlugs) {
-        const discover = (withTags) => {
-          const p = new URLSearchParams({
-            key: RAWG_API_KEY,
-            genres: genreSlugs,
-            ordering: "-added",
-            page_size: "12",
-          });
-          if (withTags && tagSlugs) p.set("tags", tagSlugs);
-          return fetchJson(`${RAWG_BASE}/games?${p.toString()}`);
-        };
-        const notSeen = (x) => x.id !== g.id && !results.some((r) => r.id === x.id);
-        let extra = ((await discover(true)).results || []).filter(notSeen);
-        if (results.length + extra.length < 5 && tagSlugs) {
-          // Tag combo too narrow — widen to genre-only matches
-          extra = ((await discover(false)).results || []).filter(notSeen);
-        }
+      // RAWG's tags= param is OR, which is far too loose (any game
+      // sharing ONE tag matches). Use it only to get a candidate
+      // pool, then require ≥2 shared distinctive tags client-side.
+      if (genreSlugs && tagList.length) {
+        const p = new URLSearchParams({
+          key: RAWG_API_KEY,
+          genres: genreSlugs,
+          tags: tagList.join(","),
+          ordering: "-added",
+          page_size: "20",
+        });
+        const res = await fetchJson(`${RAWG_BASE}/games?${p.toString()}`);
+        const wanted = new Set(tagList);
+        const sharedTags = (x) =>
+          (x.tags || []).filter((t) => wanted.has(t.slug)).length;
+        const minShared = Math.min(2, tagList.length);
+        const extra = (res.results || [])
+          .filter(
+            (x) =>
+              x.id !== g.id &&
+              !results.some((r) => r.id === x.id) &&
+              isRealGame(x) &&
+              sharedTags(x) >= minShared
+          )
+          .sort((a, b) => sharedTags(b) - sharedTags(a));
         results = results.concat(extra);
       }
     } catch {}
