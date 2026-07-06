@@ -226,6 +226,13 @@ const API_SECTIONS = {
     searchPlaceholder: "Search…",
     categories: [],
   },
+  about: {
+    api: null,
+    noun: "about",
+    heroLabel: "",
+    searchPlaceholder: "Search…",
+    categories: [],
+  },
   movies: {
     api: "tmdb",
     tmdbType: "movie",
@@ -301,6 +308,7 @@ const sectionState = {
   home: makeSectionState(),
   mylist: makeSectionState(),
   settings: makeSectionState(),
+  about: makeSectionState(),
   movies: makeSectionState(),
   games: makeSectionState(),
   tvshows: makeSectionState(),
@@ -460,6 +468,7 @@ const navbarEl = document.getElementById("navbar");
 const heroEl = document.getElementById("hero");
 const homeRowsEl = document.getElementById("homeRows");
 const settingsPanel = document.getElementById("settingsPanel");
+const aboutPanel = document.getElementById("aboutPanel");
 const filtersEl = document.getElementById("filters");
 const gridEl = document.getElementById("grid");
 const emptyStateEl = document.getElementById("emptyState");
@@ -500,8 +509,10 @@ function switchSection(sectionKey) {
   const isHome = sectionKey === "home";
   const isMyList = sectionKey === "mylist";
   const isSettings = sectionKey === "settings";
+  const isAbout = sectionKey === "about";
+  const isStatic = isHome || isSettings || isAbout; // no searchable card list
   searchInput.placeholder = cfg.searchPlaceholder;
-  searchInput.disabled = isHome || isSettings; // search targets a specific list
+  searchInput.disabled = isStatic; // search targets a specific list
 
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.classList.toggle("active", link.dataset.section === sectionKey);
@@ -509,7 +520,7 @@ function switchSection(sectionKey) {
   positionNavPill();
 
   // Remember where the user was (feeds the "Last visited" landing option)
-  if (!isSettings) {
+  if (!isSettings && !isAbout) {
     try {
       localStorage.setItem(LAST_SECTION_KEY, sectionKey);
     } catch {}
@@ -518,8 +529,9 @@ function switchSection(sectionKey) {
   stopSpotlightRotation();
   homeRowsEl.classList.toggle("hidden", !isHome);
   settingsPanel.classList.toggle("hidden", !isSettings);
-  filtersEl.classList.toggle("hidden", isHome || isSettings);
-  gridEl.classList.toggle("hidden", isHome || isSettings);
+  aboutPanel.classList.toggle("hidden", !isAbout);
+  filtersEl.classList.toggle("hidden", isStatic);
+  gridEl.classList.toggle("hidden", isStatic);
 
   if (isHome) {
     emptyStateEl.classList.add("hidden");
@@ -531,6 +543,12 @@ function switchSection(sectionKey) {
     emptyStateEl.classList.add("hidden");
     loadMoreWrap.classList.add("hidden");
     renderSettings();
+  } else if (isAbout) {
+    heroEl.classList.add("hidden");
+    heroEl.classList.remove("hero--spotlight");
+    emptyStateEl.classList.add("hidden");
+    loadMoreWrap.classList.add("hidden");
+    renderAbout();
   } else if (isMyList) {
     heroEl.classList.add("hidden");
     heroEl.classList.remove("hero--spotlight");
@@ -552,10 +570,16 @@ function switchSection(sectionKey) {
   window.scrollTo({ top: 0, behavior: scrollMode() });
 }
 
-/* Sliding pill behind the active nav link */
+/* Sliding pill behind the active nav link. Hidden when the current
+   section has no nav item (e.g. the footer-linked About page). */
 function positionNavPill() {
+  if (!navPillEl) return;
   const active = navLinksEl.querySelector(".nav-link.active");
-  if (!active || !navPillEl) return;
+  if (!active) {
+    navPillEl.style.opacity = "0";
+    return;
+  }
+  navPillEl.style.opacity = "1";
   navPillEl.style.width = `${active.offsetWidth}px`;
   navPillEl.style.transform = `translateX(${active.offsetLeft}px)`;
   navPillEl.classList.add("ready");
@@ -806,6 +830,79 @@ function importSettings(file) {
     }
   };
   reader.readAsText(file);
+}
+
+/* ============================================================
+   ABOUT PANEL — static informational page (footer-linked)
+   ============================================================ */
+
+function renderAbout() {
+  const feature = (title, body) => `
+    <div class="about-card">
+      <h3>${title}</h3>
+      <p>${body}</p>
+    </div>`;
+
+  aboutPanel.innerHTML = `
+    <header class="about-hero">
+      <span class="about-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 1.5c.9 5.6 3.9 8.6 9.5 9.5-5.6.9-8.6 3.9-9.5 9.5-.9-5.6-3.9-8.6-9.5-9.5 5.6-.9 8.6-3.9 9.5-9.5Z"/>
+        </svg>
+      </span>
+      <h1>About Fliqora</h1>
+      <p class="about-tagline">
+        One place to discover movies, games and TV shows — see where to
+        stream them, where to buy them, and what they cost.
+      </p>
+    </header>
+
+    <section class="settings-group about-prose">
+      <h2>What it does</h2>
+      <p>
+        Fliqora pulls live data from real databases so you can browse trending
+        titles, filter by genre, sort and search across thousands of movies,
+        games and shows, then open any title for the full picture: ratings,
+        platforms, streaming availability, store prices, screenshots and
+        similar recommendations. Save favourites to <strong>My List</strong>,
+        and tune the look and feel in <strong>Settings</strong>.
+      </p>
+    </section>
+
+    <section class="settings-group">
+      <h2>Highlights</h2>
+      <div class="about-grid">
+        ${feature("Where to watch", "Streaming, rent and buy options for movies &amp; TV, tailored to your region.")}
+        ${feature("Best game prices", "Live PC prices with a direct link to the store's real page.")}
+        ${feature("Trending, not dusty", "Games feed leads with what's popular now, not decade-old classics.")}
+        ${feature("My List", "Heart anything to save it — backed up locally, exportable as JSON.")}
+        ${feature("Made yours", "Themes, accent colours, motion and density all live-adjustable.")}
+        ${feature("Surprise me", "One click opens a random title when you can't decide.")}
+      </div>
+    </section>
+
+    <section class="settings-group about-prose">
+      <h2>Data &amp; credits</h2>
+      <p>
+        Game data is provided by
+        <a href="https://rawg.io" target="_blank" rel="noopener noreferrer">RAWG</a>,
+        with prices from
+        <a href="https://www.cheapshark.com" target="_blank" rel="noopener noreferrer">CheapShark</a>.
+        Movie &amp; TV data, images and streaming availability come from
+        <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">The Movie Database (TMDB)</a>.
+        Fliqora is a non-commercial project and is not endorsed by or
+        affiliated with any of these services.
+      </p>
+      <p>
+        Built as a single-page site with plain HTML, CSS and JavaScript — no
+        frameworks, no tracking. View the source on
+        <a href="https://github.com/alexanderbruun4-coder/media-hub" target="_blank" rel="noopener noreferrer">GitHub</a>.
+      </p>
+    </section>
+
+    <div class="about-actions">
+      <button type="button" class="hero-btn" data-goto="home">Start browsing</button>
+    </div>`;
 }
 
 /** My List replaces the filter row with export/import tools. */
@@ -2268,6 +2365,20 @@ document.getElementById("brand").addEventListener("click", (e) => {
   switchSection("home");
 });
 
+// Footer links that open an internal section (e.g. About)
+document.querySelector(".footer").addEventListener("click", (e) => {
+  const link = e.target.closest("[data-section]");
+  if (!link) return;
+  e.preventDefault();
+  switchSection(link.dataset.section);
+});
+
+// About panel: "Start browsing" and any [data-goto] buttons
+aboutPanel.addEventListener("click", (e) => {
+  const goto = e.target.closest("[data-goto]");
+  if (goto) switchSection(goto.dataset.goto);
+});
+
 // Filter buttons → set category and reload the section.
 // On My List the same row hosts the export/import tools instead.
 filtersEl.addEventListener("click", (e) => {
@@ -2505,7 +2616,11 @@ let landingSection =
         }
       })()
     : settings.landing;
-if (!API_SECTIONS[landingSection] || landingSection === "settings") {
+if (
+  !API_SECTIONS[landingSection] ||
+  landingSection === "settings" ||
+  landingSection === "about"
+) {
   landingSection = "home";
 }
 switchSection(landingSection);
