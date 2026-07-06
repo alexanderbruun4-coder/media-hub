@@ -88,6 +88,7 @@ const DEFAULT_SETTINGS = {
   cardSize: "normal", // compact | normal | large
   autoplay: true,     // hero spotlight auto-rotate
   landing: "auto",    // auto (= last visited) | home | movies | games | tvshows
+  language: "auto",   // auto (= browser) | en | es | fr | de | pt | da
 };
 let settings = { ...DEFAULT_SETTINGS };
 
@@ -154,6 +155,538 @@ function motionLevel() {
 const motionOff = () => motionLevel() === "off";
 const motionFull = () => motionLevel() === "on";
 const scrollMode = () => (motionOff() ? "auto" : "smooth");
+
+/* ============================================================
+   I18N — UI language. Chrome strings live in the I18N dictionary
+   (missing keys fall back to English, so partial coverage never
+   breaks). Movie/TV titles + descriptions localize for free via
+   TMDB's `language` param; game data (RAWG) stays source-language.
+   ============================================================ */
+const LANGUAGES = {
+  en: "English",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  pt: "Português",
+  da: "Dansk",
+};
+
+/* UI language → TMDB locale (localizes API content where available) */
+const TMDB_LOCALES = {
+  en: "en-US", es: "es-ES", fr: "fr-FR", de: "de-DE", pt: "pt-BR", da: "da-DK",
+};
+
+/** Effective language code (resolves "auto" to the browser's). */
+function langCode() {
+  if (settings.language && settings.language !== "auto") return settings.language;
+  const two = (navigator.language || "en").slice(0, 2).toLowerCase();
+  return LANGUAGES[two] ? two : "en";
+}
+
+function tmdbLang() {
+  return TMDB_LOCALES[langCode()] || "en-US";
+}
+
+/** Translate a key. Falls back current → English → provided default → key. */
+function t(key, fallback) {
+  const lang = langCode();
+  return (
+    (I18N[lang] && I18N[lang][key]) ||
+    I18N.en[key] ||
+    fallback ||
+    key
+  );
+}
+
+/** Translate with {placeholder} substitution. */
+function tf(key, vars) {
+  let s = t(key);
+  for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
+  return s;
+}
+
+const I18N = {
+  en: {
+    "nav.home": "Home", "nav.movies": "Movies", "nav.games": "Games",
+    "nav.tvshows": "TV Shows", "nav.mylist": "My List",
+    "aria.settings": "Settings", "aria.surprise": "Surprise me — open a random title",
+    "aria.search": "Search",
+    "search.home": "Pick a section to search…", "search.movies": "Search all movies…",
+    "search.games": "Search games…", "search.tvshows": "Search all TV shows…",
+    "search.mylist": "Search your list…", "search.settings": "Search…", "search.about": "Search…",
+    "hero.trending": "Trending Now", "hero.featuredMovie": "★ Featured Movie",
+    "hero.featuredGame": "★ Featured Game", "hero.featuredTV": "★ Featured TV Show",
+    "hero.viewDetails": "View Details",
+    "noun.movies": "movies", "noun.games": "games", "noun.tvshows": "TV shows",
+    "common.loadMore": "Load More", "common.loading": "Loading…",
+    "common.showing": "Showing {a} of {b} {noun}",
+    "sort.label": "Sort", "sort.trending": "Trending", "sort.allTime": "All-time popular",
+    "sort.topRated": "Top rated", "sort.newest": "Newest", "sort.nameAZ": "Name A–Z",
+    "sort.popular": "Most popular",
+    "genre.All": "All",
+    "empty.nothingTitle": "Nothing found", "empty.nothingBody": "Try a different search or category.",
+    "empty.listTitle": "Your list is empty",
+    "empty.listBody": "Tap the heart on any movie, game, or show to save it here.",
+    "empty.listNoMatchTitle": "No matches in your list", "empty.listNoMatchBody": "Try a different search.",
+    "error.title": "Couldn't load {noun}",
+    "error.body": "{msg} — check your internet connection and try again.",
+    "error.retry": "Retry",
+    "row.games": "Trending Games", "row.movies": "Popular Movies", "row.tv": "Popular TV Shows",
+    "row.seeAll": "See All",
+    "modal.released": "Released", "modal.firstAired": "First aired",
+    "modal.metacritic": "Metacritic", "modal.loadingDetails": "Loading details…",
+    "modal.noDescription": "No description available.", "modal.screenshots": "Screenshots",
+    "modal.similarGames": "Similar games", "modal.moreLikeThis": "More like this",
+    "modal.availableOn": "Available on:", "modal.links": "Links:",
+    "modal.viewTMDB": "View on TMDB", "modal.officialSite": "Official Site",
+    "modal.inCinemas": "In cinemas:", "modal.showtimes": "Showtimes near you",
+    "modal.checkingWatch": "Checking where to watch…",
+    "modal.streamOn": "Stream on ({r}):", "modal.rentBuy": "Rent or buy ({r}):",
+    "modal.noStreaming": "Not on any streaming service in {r} yet.",
+    "modal.noRegion": "No streaming info available for your region.",
+    "modal.priceOn": "{price} on {store}", "modal.pcPrice": "{store} price (USD):",
+    "modal.notRated": "Not rated yet", "modal.votes": "votes",
+    "mylist.export": "Export list (JSON)", "mylist.import": "Import list", "mylist.saved": "{n} saved",
+    "settings.title": "Settings", "settings.appearance": "Appearance",
+    "settings.behavior": "Behavior", "settings.data": "Data",
+    "settings.theme": "Theme", "settings.themeDesc": "Overall look of the site",
+    "theme.dark": "Dark", "theme.light": "Light", "theme.amoled": "AMOLED",
+    "settings.accent": "Accent color", "settings.accentDesc": "Buttons, highlights and active states",
+    "settings.cardSize": "Card size", "settings.cardSizeDesc": "How dense the browse grids are",
+    "size.compact": "Compact", "size.normal": "Normal", "size.large": "Large",
+    "settings.animations": "Animations", "settings.animationsDesc": "Motion across the whole site",
+    "motion.on": "On", "motion.reduced": "Reduced", "motion.off": "Off",
+    "settings.autoplay": "Autoplay spotlight", "settings.autoplayDesc": "Rotate the Home hero every 6 seconds",
+    "settings.landing": "Open the site on", "settings.landingDesc": "Which section loads first",
+    "landing.auto": "Last visited",
+    "settings.language": "Language", "settings.languageDesc": "Language of the interface",
+    "language.auto": "Automatic (browser)",
+    "settings.backup": "Settings backup", "settings.backupDesc": "Move your preferences to another device",
+    "settings.export": "Export JSON", "settings.import": "Import",
+    "settings.listBackup": "My List backup",
+    "settings.reset": "Reset", "settings.resetDesc": "Back to the default look and behavior",
+    "settings.resetBtn": "Reset settings",
+    "about.title": "About Fliqora",
+    "about.tagline": "One place to discover movies, games and TV shows — see where to stream them, where to buy them, and what they cost.",
+    "about.whatTitle": "What it does",
+    "about.whatBody": "Fliqora pulls live data from real databases so you can browse trending titles, filter by genre, sort and search across thousands of movies, games and shows, then open any title for the full picture: ratings, platforms, streaming availability, store prices, screenshots and similar recommendations. Save favourites to <strong>My List</strong>, and tune the look and feel in <strong>Settings</strong>.",
+    "about.highlights": "Highlights",
+    "about.c1t": "Where to watch", "about.c1b": "Streaming, rent and buy options for movies &amp; TV, tailored to your region.",
+    "about.c2t": "Best game prices", "about.c2b": "Live PC prices with a direct link to the store's real page.",
+    "about.c3t": "Trending, not dusty", "about.c3b": "Games feed leads with what's popular now, not decade-old classics.",
+    "about.c4t": "My List", "about.c4b": "Heart anything to save it — backed up locally, exportable as JSON.",
+    "about.c5t": "Made yours", "about.c5b": "Themes, accent colours, motion and density all live-adjustable.",
+    "about.c6t": "Surprise me", "about.c6b": "One click opens a random title when you can't decide.",
+    "about.dataTitle": "Data &amp; credits",
+    "about.dataBody1": "Game data is provided by <a href=\"https://rawg.io\" target=\"_blank\" rel=\"noopener noreferrer\">RAWG</a>, with prices from <a href=\"https://www.cheapshark.com\" target=\"_blank\" rel=\"noopener noreferrer\">CheapShark</a>. Movie &amp; TV data, images and streaming availability come from <a href=\"https://www.themoviedb.org\" target=\"_blank\" rel=\"noopener noreferrer\">The Movie Database (TMDB)</a>. Fliqora is a non-commercial project and is not endorsed by or affiliated with any of these services.",
+    "about.dataBody2": "Built as a single-page site with plain HTML, CSS and JavaScript — no frameworks, no tracking. View the source on <a href=\"https://github.com/alexanderbruun4-coder/media-hub\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>.",
+    "about.start": "Start browsing",
+    "footer.tagline": "movies, games &amp; TV in one place", "footer.about": "About",
+  },
+
+  es: {
+    "nav.home": "Inicio", "nav.movies": "Películas", "nav.games": "Juegos",
+    "nav.tvshows": "Series", "nav.mylist": "Mi lista",
+    "aria.settings": "Ajustes", "aria.surprise": "Sorpréndeme — abrir un título al azar",
+    "aria.search": "Buscar",
+    "search.home": "Elige una sección para buscar…", "search.movies": "Buscar películas…",
+    "search.games": "Buscar juegos…", "search.tvshows": "Buscar series…",
+    "search.mylist": "Buscar en tu lista…",
+    "hero.trending": "Tendencias ahora", "hero.featuredMovie": "★ Película destacada",
+    "hero.featuredGame": "★ Juego destacado", "hero.featuredTV": "★ Serie destacada",
+    "hero.viewDetails": "Ver detalles",
+    "noun.movies": "películas", "noun.games": "juegos", "noun.tvshows": "series",
+    "common.loadMore": "Cargar más", "common.loading": "Cargando…",
+    "common.showing": "Mostrando {a} de {b} {noun}",
+    "sort.label": "Ordenar", "sort.trending": "Tendencia", "sort.allTime": "Populares de siempre",
+    "sort.topRated": "Mejor valorados", "sort.newest": "Más recientes", "sort.nameAZ": "Nombre A–Z",
+    "sort.popular": "Más populares",
+    "genre.All": "Todos",
+    "empty.nothingTitle": "Sin resultados", "empty.nothingBody": "Prueba otra búsqueda o categoría.",
+    "empty.listTitle": "Tu lista está vacía",
+    "empty.listBody": "Toca el corazón en cualquier película, juego o serie para guardarlo aquí.",
+    "empty.listNoMatchTitle": "Nada coincide en tu lista", "empty.listNoMatchBody": "Prueba otra búsqueda.",
+    "error.title": "No se pudieron cargar {noun}",
+    "error.body": "{msg} — comprueba tu conexión e inténtalo de nuevo.",
+    "error.retry": "Reintentar",
+    "row.games": "Juegos en tendencia", "row.movies": "Películas populares", "row.tv": "Series populares",
+    "row.seeAll": "Ver todo",
+    "modal.released": "Estreno", "modal.firstAired": "Primera emisión",
+    "modal.metacritic": "Metacritic", "modal.loadingDetails": "Cargando detalles…",
+    "modal.noDescription": "No hay descripción disponible.", "modal.screenshots": "Capturas",
+    "modal.similarGames": "Juegos similares", "modal.moreLikeThis": "Títulos similares",
+    "modal.availableOn": "Disponible en:", "modal.links": "Enlaces:",
+    "modal.viewTMDB": "Ver en TMDB", "modal.officialSite": "Sitio oficial",
+    "modal.inCinemas": "En cines:", "modal.showtimes": "Horarios cerca de ti",
+    "modal.checkingWatch": "Buscando dónde ver…",
+    "modal.streamOn": "En streaming ({r}):", "modal.rentBuy": "Alquilar o comprar ({r}):",
+    "modal.noStreaming": "Aún no está en ningún servicio de streaming en {r}.",
+    "modal.noRegion": "No hay información de streaming para tu región.",
+    "modal.priceOn": "{price} en {store}", "modal.pcPrice": "Precio en {store} (USD):",
+    "modal.notRated": "Sin valorar aún", "modal.votes": "votos",
+    "mylist.export": "Exportar lista (JSON)", "mylist.import": "Importar lista", "mylist.saved": "{n} guardados",
+    "settings.title": "Ajustes", "settings.appearance": "Apariencia",
+    "settings.behavior": "Comportamiento", "settings.data": "Datos",
+    "settings.theme": "Tema", "settings.themeDesc": "Aspecto general del sitio",
+    "theme.dark": "Oscuro", "theme.light": "Claro", "theme.amoled": "AMOLED",
+    "settings.accent": "Color de acento", "settings.accentDesc": "Botones, resaltados y estados activos",
+    "settings.cardSize": "Tamaño de tarjeta", "settings.cardSizeDesc": "Densidad de las cuadrículas",
+    "size.compact": "Compacto", "size.normal": "Normal", "size.large": "Grande",
+    "settings.animations": "Animaciones", "settings.animationsDesc": "Movimiento en todo el sitio",
+    "motion.on": "Sí", "motion.reduced": "Reducido", "motion.off": "No",
+    "settings.autoplay": "Reproducir portada", "settings.autoplayDesc": "Rotar el destacado de Inicio cada 6 segundos",
+    "settings.landing": "Abrir el sitio en", "settings.landingDesc": "Qué sección se carga primero",
+    "landing.auto": "Última visitada",
+    "settings.language": "Idioma", "settings.languageDesc": "Idioma de la interfaz",
+    "language.auto": "Automático (navegador)",
+    "settings.backup": "Copia de ajustes", "settings.backupDesc": "Lleva tus preferencias a otro dispositivo",
+    "settings.export": "Exportar JSON", "settings.import": "Importar",
+    "settings.listBackup": "Copia de Mi lista",
+    "settings.reset": "Restablecer", "settings.resetDesc": "Volver a la apariencia y comportamiento por defecto",
+    "settings.resetBtn": "Restablecer ajustes",
+    "about.title": "Acerca de Fliqora",
+    "about.tagline": "Un solo lugar para descubrir películas, juegos y series: dónde verlos, dónde comprarlos y cuánto cuestan.",
+    "about.whatTitle": "Qué hace",
+    "about.whatBody": "Fliqora usa datos en directo de bases de datos reales para que puedas explorar títulos en tendencia, filtrar por género, ordenar y buscar entre miles de películas, juegos y series, y abrir cualquier título para verlo todo: valoraciones, plataformas, disponibilidad en streaming, precios, capturas y recomendaciones similares. Guarda favoritos en <strong>Mi lista</strong> y ajusta el aspecto en <strong>Ajustes</strong>.",
+    "about.highlights": "Destacados",
+    "about.c1t": "Dónde ver", "about.c1b": "Opciones de streaming, alquiler y compra para películas y series, según tu región.",
+    "about.c2t": "Mejores precios", "about.c2b": "Precios de PC en directo con enlace directo a la tienda real.",
+    "about.c3t": "Actual, no polvoriento", "about.c3b": "El feed de juegos muestra lo popular ahora, no clásicos de hace una década.",
+    "about.c4t": "Mi lista", "about.c4b": "Guarda cualquier cosa con un toque — respaldo local, exportable como JSON.",
+    "about.c5t": "A tu medida", "about.c5b": "Temas, colores de acento, movimiento y densidad, todo ajustable en directo.",
+    "about.c6t": "Sorpréndeme", "about.c6b": "Un clic abre un título al azar cuando no te decides.",
+    "about.dataTitle": "Datos y créditos",
+    "about.dataBody1": "Los datos de juegos los proporciona <a href=\"https://rawg.io\" target=\"_blank\" rel=\"noopener noreferrer\">RAWG</a>, con precios de <a href=\"https://www.cheapshark.com\" target=\"_blank\" rel=\"noopener noreferrer\">CheapShark</a>. Los datos, imágenes y disponibilidad de películas y series provienen de <a href=\"https://www.themoviedb.org\" target=\"_blank\" rel=\"noopener noreferrer\">The Movie Database (TMDB)</a>. Fliqora es un proyecto sin ánimo de lucro y no está avalado ni afiliado a estos servicios.",
+    "about.dataBody2": "Creado como un sitio de una sola página con HTML, CSS y JavaScript puros, sin frameworks ni rastreo. Consulta el código en <a href=\"https://github.com/alexanderbruun4-coder/media-hub\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>.",
+    "about.start": "Empezar a explorar",
+    "footer.tagline": "películas, juegos y series en un solo lugar", "footer.about": "Acerca de",
+  },
+
+  fr: {
+    "nav.home": "Accueil", "nav.movies": "Films", "nav.games": "Jeux",
+    "nav.tvshows": "Séries", "nav.mylist": "Ma liste",
+    "aria.settings": "Paramètres", "aria.surprise": "Surprends-moi — ouvrir un titre au hasard",
+    "aria.search": "Rechercher",
+    "search.home": "Choisis une section à explorer…", "search.movies": "Rechercher des films…",
+    "search.games": "Rechercher des jeux…", "search.tvshows": "Rechercher des séries…",
+    "search.mylist": "Rechercher dans ta liste…",
+    "hero.trending": "Tendances", "hero.featuredMovie": "★ Film à la une",
+    "hero.featuredGame": "★ Jeu à la une", "hero.featuredTV": "★ Série à la une",
+    "hero.viewDetails": "Voir les détails",
+    "noun.movies": "films", "noun.games": "jeux", "noun.tvshows": "séries",
+    "common.loadMore": "Charger plus", "common.loading": "Chargement…",
+    "common.showing": "{a} sur {b} {noun}",
+    "sort.label": "Trier", "sort.trending": "Tendance", "sort.allTime": "Populaires de tout temps",
+    "sort.topRated": "Mieux notés", "sort.newest": "Plus récents", "sort.nameAZ": "Nom A–Z",
+    "sort.popular": "Plus populaires",
+    "genre.All": "Tous",
+    "empty.nothingTitle": "Aucun résultat", "empty.nothingBody": "Essaie une autre recherche ou catégorie.",
+    "empty.listTitle": "Ta liste est vide",
+    "empty.listBody": "Touche le cœur d'un film, d'un jeu ou d'une série pour l'enregistrer ici.",
+    "empty.listNoMatchTitle": "Aucun résultat dans ta liste", "empty.listNoMatchBody": "Essaie une autre recherche.",
+    "error.title": "Impossible de charger les {noun}",
+    "error.body": "{msg} — vérifie ta connexion et réessaie.",
+    "error.retry": "Réessayer",
+    "row.games": "Jeux tendance", "row.movies": "Films populaires", "row.tv": "Séries populaires",
+    "row.seeAll": "Tout voir",
+    "modal.released": "Sortie", "modal.firstAired": "Première diffusion",
+    "modal.metacritic": "Metacritic", "modal.loadingDetails": "Chargement des détails…",
+    "modal.noDescription": "Aucune description disponible.", "modal.screenshots": "Captures d'écran",
+    "modal.similarGames": "Jeux similaires", "modal.moreLikeThis": "Titres similaires",
+    "modal.availableOn": "Disponible sur :", "modal.links": "Liens :",
+    "modal.viewTMDB": "Voir sur TMDB", "modal.officialSite": "Site officiel",
+    "modal.inCinemas": "Au cinéma :", "modal.showtimes": "Séances près de chez toi",
+    "modal.checkingWatch": "Recherche des plateformes…",
+    "modal.streamOn": "En streaming ({r}) :", "modal.rentBuy": "Louer ou acheter ({r}) :",
+    "modal.noStreaming": "Pas encore sur une plateforme en {r}.",
+    "modal.noRegion": "Aucune info de streaming pour ta région.",
+    "modal.priceOn": "{price} sur {store}", "modal.pcPrice": "Prix sur {store} (USD) :",
+    "modal.notRated": "Pas encore noté", "modal.votes": "votes",
+    "mylist.export": "Exporter la liste (JSON)", "mylist.import": "Importer une liste", "mylist.saved": "{n} enregistrés",
+    "settings.title": "Paramètres", "settings.appearance": "Apparence",
+    "settings.behavior": "Comportement", "settings.data": "Données",
+    "settings.theme": "Thème", "settings.themeDesc": "Aspect général du site",
+    "theme.dark": "Sombre", "theme.light": "Clair", "theme.amoled": "AMOLED",
+    "settings.accent": "Couleur d'accent", "settings.accentDesc": "Boutons, surbrillances et états actifs",
+    "settings.cardSize": "Taille des cartes", "settings.cardSizeDesc": "Densité des grilles",
+    "size.compact": "Compact", "size.normal": "Normal", "size.large": "Grand",
+    "settings.animations": "Animations", "settings.animationsDesc": "Mouvement sur tout le site",
+    "motion.on": "Activé", "motion.reduced": "Réduit", "motion.off": "Désactivé",
+    "settings.autoplay": "Défilement auto", "settings.autoplayDesc": "Faire tourner la une toutes les 6 secondes",
+    "settings.landing": "Ouvrir le site sur", "settings.landingDesc": "Quelle section se charge en premier",
+    "landing.auto": "Dernière visitée",
+    "settings.language": "Langue", "settings.languageDesc": "Langue de l'interface",
+    "language.auto": "Automatique (navigateur)",
+    "settings.backup": "Sauvegarde des réglages", "settings.backupDesc": "Transférer tes préférences sur un autre appareil",
+    "settings.export": "Exporter JSON", "settings.import": "Importer",
+    "settings.listBackup": "Sauvegarde de Ma liste",
+    "settings.reset": "Réinitialiser", "settings.resetDesc": "Revenir à l'apparence et au comportement par défaut",
+    "settings.resetBtn": "Réinitialiser les réglages",
+    "about.title": "À propos de Fliqora",
+    "about.tagline": "Un seul endroit pour découvrir films, jeux et séries — où les regarder, où les acheter et à quel prix.",
+    "about.whatTitle": "Ce que ça fait",
+    "about.whatBody": "Fliqora utilise des données en direct de vraies bases de données pour parcourir les titres tendance, filtrer par genre, trier et rechercher parmi des milliers de films, jeux et séries, puis ouvrir n'importe quel titre pour tout voir : notes, plateformes, disponibilité en streaming, prix, captures et recommandations similaires. Enregistre des favoris dans <strong>Ma liste</strong> et règle l'apparence dans <strong>Paramètres</strong>.",
+    "about.highlights": "Points forts",
+    "about.c1t": "Où regarder", "about.c1b": "Options de streaming, location et achat pour films et séries, selon ta région.",
+    "about.c2t": "Meilleurs prix", "about.c2b": "Prix PC en direct avec un lien direct vers la vraie page du magasin.",
+    "about.c3t": "Actuel, pas poussiéreux", "about.c3b": "Le fil de jeux met en avant ce qui est populaire maintenant.",
+    "about.c4t": "Ma liste", "about.c4b": "Enregistre tout d'un geste — sauvegardé localement, exportable en JSON.",
+    "about.c5t": "À ta façon", "about.c5b": "Thèmes, couleurs d'accent, mouvement et densité, tout est réglable en direct.",
+    "about.c6t": "Surprends-moi", "about.c6b": "Un clic ouvre un titre au hasard quand tu hésites.",
+    "about.dataTitle": "Données et crédits",
+    "about.dataBody1": "Les données de jeux sont fournies par <a href=\"https://rawg.io\" target=\"_blank\" rel=\"noopener noreferrer\">RAWG</a>, avec les prix de <a href=\"https://www.cheapshark.com\" target=\"_blank\" rel=\"noopener noreferrer\">CheapShark</a>. Les données, images et disponibilités de films et séries proviennent de <a href=\"https://www.themoviedb.org\" target=\"_blank\" rel=\"noopener noreferrer\">The Movie Database (TMDB)</a>. Fliqora est un projet non commercial, sans lien ni approbation de ces services.",
+    "about.dataBody2": "Conçu comme un site d'une seule page en HTML, CSS et JavaScript purs — sans framework ni suivi. Voir le code sur <a href=\"https://github.com/alexanderbruun4-coder/media-hub\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>.",
+    "about.start": "Commencer à explorer",
+    "footer.tagline": "films, jeux et séries au même endroit", "footer.about": "À propos",
+  },
+
+  de: {
+    "nav.home": "Start", "nav.movies": "Filme", "nav.games": "Spiele",
+    "nav.tvshows": "Serien", "nav.mylist": "Meine Liste",
+    "aria.settings": "Einstellungen", "aria.surprise": "Überrasch mich — zufälligen Titel öffnen",
+    "aria.search": "Suchen",
+    "search.home": "Wähle einen Bereich zum Suchen…", "search.movies": "Filme suchen…",
+    "search.games": "Spiele suchen…", "search.tvshows": "Serien suchen…",
+    "search.mylist": "In deiner Liste suchen…",
+    "hero.trending": "Gerade im Trend", "hero.featuredMovie": "★ Ausgewählter Film",
+    "hero.featuredGame": "★ Ausgewähltes Spiel", "hero.featuredTV": "★ Ausgewählte Serie",
+    "hero.viewDetails": "Details ansehen",
+    "noun.movies": "Filme", "noun.games": "Spiele", "noun.tvshows": "Serien",
+    "common.loadMore": "Mehr laden", "common.loading": "Wird geladen…",
+    "common.showing": "{a} von {b} {noun}",
+    "sort.label": "Sortieren", "sort.trending": "Im Trend", "sort.allTime": "Immer beliebt",
+    "sort.topRated": "Bestbewertet", "sort.newest": "Neueste", "sort.nameAZ": "Name A–Z",
+    "sort.popular": "Beliebteste",
+    "genre.All": "Alle",
+    "empty.nothingTitle": "Nichts gefunden", "empty.nothingBody": "Versuch eine andere Suche oder Kategorie.",
+    "empty.listTitle": "Deine Liste ist leer",
+    "empty.listBody": "Tippe das Herz bei einem Film, Spiel oder einer Serie, um es hier zu speichern.",
+    "empty.listNoMatchTitle": "Keine Treffer in deiner Liste", "empty.listNoMatchBody": "Versuch eine andere Suche.",
+    "error.title": "{noun} konnten nicht geladen werden",
+    "error.body": "{msg} — prüfe deine Internetverbindung und versuch es erneut.",
+    "error.retry": "Erneut versuchen",
+    "row.games": "Angesagte Spiele", "row.movies": "Beliebte Filme", "row.tv": "Beliebte Serien",
+    "row.seeAll": "Alle ansehen",
+    "modal.released": "Erschienen", "modal.firstAired": "Erstausstrahlung",
+    "modal.metacritic": "Metacritic", "modal.loadingDetails": "Details werden geladen…",
+    "modal.noDescription": "Keine Beschreibung verfügbar.", "modal.screenshots": "Screenshots",
+    "modal.similarGames": "Ähnliche Spiele", "modal.moreLikeThis": "Ähnliche Titel",
+    "modal.availableOn": "Verfügbar auf:", "modal.links": "Links:",
+    "modal.viewTMDB": "Auf TMDB ansehen", "modal.officialSite": "Offizielle Seite",
+    "modal.inCinemas": "Im Kino:", "modal.showtimes": "Spielzeiten in deiner Nähe",
+    "modal.checkingWatch": "Suche, wo verfügbar…",
+    "modal.streamOn": "Streamen auf ({r}):", "modal.rentBuy": "Leihen oder kaufen ({r}):",
+    "modal.noStreaming": "Noch bei keinem Streamingdienst in {r}.",
+    "modal.noRegion": "Keine Streaming-Infos für deine Region.",
+    "modal.priceOn": "{price} auf {store}", "modal.pcPrice": "Preis auf {store} (USD):",
+    "modal.notRated": "Noch nicht bewertet", "modal.votes": "Stimmen",
+    "mylist.export": "Liste exportieren (JSON)", "mylist.import": "Liste importieren", "mylist.saved": "{n} gespeichert",
+    "settings.title": "Einstellungen", "settings.appearance": "Darstellung",
+    "settings.behavior": "Verhalten", "settings.data": "Daten",
+    "settings.theme": "Design", "settings.themeDesc": "Gesamtlook der Seite",
+    "theme.dark": "Dunkel", "theme.light": "Hell", "theme.amoled": "AMOLED",
+    "settings.accent": "Akzentfarbe", "settings.accentDesc": "Buttons, Hervorhebungen und aktive Zustände",
+    "settings.cardSize": "Kartengröße", "settings.cardSizeDesc": "Wie dicht die Raster sind",
+    "size.compact": "Kompakt", "size.normal": "Normal", "size.large": "Groß",
+    "settings.animations": "Animationen", "settings.animationsDesc": "Bewegung auf der ganzen Seite",
+    "motion.on": "An", "motion.reduced": "Reduziert", "motion.off": "Aus",
+    "settings.autoplay": "Auto-Slideshow", "settings.autoplayDesc": "Das Start-Highlight alle 6 Sekunden wechseln",
+    "settings.landing": "Seite öffnen mit", "settings.landingDesc": "Welcher Bereich zuerst lädt",
+    "landing.auto": "Zuletzt besucht",
+    "settings.language": "Sprache", "settings.languageDesc": "Sprache der Oberfläche",
+    "language.auto": "Automatisch (Browser)",
+    "settings.backup": "Einstellungen sichern", "settings.backupDesc": "Deine Einstellungen auf ein anderes Gerät bringen",
+    "settings.export": "JSON exportieren", "settings.import": "Importieren",
+    "settings.listBackup": "Meine Liste sichern",
+    "settings.reset": "Zurücksetzen", "settings.resetDesc": "Zurück zu Standard-Look und -Verhalten",
+    "settings.resetBtn": "Einstellungen zurücksetzen",
+    "about.title": "Über Fliqora",
+    "about.tagline": "Ein Ort, um Filme, Spiele und Serien zu entdecken — wo du sie streamst, wo du sie kaufst und was sie kosten.",
+    "about.whatTitle": "Was es macht",
+    "about.whatBody": "Fliqora nutzt Live-Daten aus echten Datenbanken: Stöbere durch angesagte Titel, filtere nach Genre, sortiere und suche in Tausenden von Filmen, Spielen und Serien und öffne jeden Titel für das Gesamtbild: Bewertungen, Plattformen, Streaming-Verfügbarkeit, Preise, Screenshots und ähnliche Empfehlungen. Speichere Favoriten in <strong>Meine Liste</strong> und passe den Look in <strong>Einstellungen</strong> an.",
+    "about.highlights": "Highlights",
+    "about.c1t": "Wo ansehen", "about.c1b": "Streaming-, Leih- und Kaufoptionen für Filme &amp; Serien, passend zu deiner Region.",
+    "about.c2t": "Beste Spielpreise", "about.c2b": "Live-PC-Preise mit direktem Link zur echten Shop-Seite.",
+    "about.c3t": "Aktuell, nicht angestaubt", "about.c3b": "Der Spiele-Feed zeigt, was jetzt beliebt ist, keine alten Klassiker.",
+    "about.c4t": "Meine Liste", "about.c4b": "Speichere alles per Herz — lokal gesichert, als JSON exportierbar.",
+    "about.c5t": "Ganz nach dir", "about.c5b": "Designs, Akzentfarben, Bewegung und Dichte — alles live einstellbar.",
+    "about.c6t": "Überrasch mich", "about.c6b": "Ein Klick öffnet einen zufälligen Titel, wenn du dich nicht entscheiden kannst.",
+    "about.dataTitle": "Daten &amp; Credits",
+    "about.dataBody1": "Spieldaten stammen von <a href=\"https://rawg.io\" target=\"_blank\" rel=\"noopener noreferrer\">RAWG</a>, Preise von <a href=\"https://www.cheapshark.com\" target=\"_blank\" rel=\"noopener noreferrer\">CheapShark</a>. Film- &amp; Seriendaten, Bilder und Streaming-Verfügbarkeit kommen von <a href=\"https://www.themoviedb.org\" target=\"_blank\" rel=\"noopener noreferrer\">The Movie Database (TMDB)</a>. Fliqora ist ein nicht-kommerzielles Projekt und steht in keiner Verbindung zu diesen Diensten.",
+    "about.dataBody2": "Gebaut als Single-Page-Site mit reinem HTML, CSS und JavaScript — keine Frameworks, kein Tracking. Quellcode auf <a href=\"https://github.com/alexanderbruun4-coder/media-hub\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>.",
+    "about.start": "Loslegen",
+    "footer.tagline": "Filme, Spiele &amp; Serien an einem Ort", "footer.about": "Über",
+  },
+
+  pt: {
+    "nav.home": "Início", "nav.movies": "Filmes", "nav.games": "Jogos",
+    "nav.tvshows": "Séries", "nav.mylist": "Minha lista",
+    "aria.settings": "Definições", "aria.surprise": "Surpreende-me — abrir um título aleatório",
+    "aria.search": "Pesquisar",
+    "search.home": "Escolhe uma secção para pesquisar…", "search.movies": "Pesquisar filmes…",
+    "search.games": "Pesquisar jogos…", "search.tvshows": "Pesquisar séries…",
+    "search.mylist": "Pesquisar na tua lista…",
+    "hero.trending": "Em tendência", "hero.featuredMovie": "★ Filme em destaque",
+    "hero.featuredGame": "★ Jogo em destaque", "hero.featuredTV": "★ Série em destaque",
+    "hero.viewDetails": "Ver detalhes",
+    "noun.movies": "filmes", "noun.games": "jogos", "noun.tvshows": "séries",
+    "common.loadMore": "Carregar mais", "common.loading": "A carregar…",
+    "common.showing": "A mostrar {a} de {b} {noun}",
+    "sort.label": "Ordenar", "sort.trending": "Tendência", "sort.allTime": "Populares de sempre",
+    "sort.topRated": "Mais votados", "sort.newest": "Mais recentes", "sort.nameAZ": "Nome A–Z",
+    "sort.popular": "Mais populares",
+    "genre.All": "Todos",
+    "empty.nothingTitle": "Nada encontrado", "empty.nothingBody": "Tenta outra pesquisa ou categoria.",
+    "empty.listTitle": "A tua lista está vazia",
+    "empty.listBody": "Toca no coração de um filme, jogo ou série para guardar aqui.",
+    "empty.listNoMatchTitle": "Nada corresponde na tua lista", "empty.listNoMatchBody": "Tenta outra pesquisa.",
+    "error.title": "Não foi possível carregar {noun}",
+    "error.body": "{msg} — verifica a tua ligação e tenta de novo.",
+    "error.retry": "Tentar de novo",
+    "row.games": "Jogos em tendência", "row.movies": "Filmes populares", "row.tv": "Séries populares",
+    "row.seeAll": "Ver tudo",
+    "modal.released": "Estreia", "modal.firstAired": "Primeira exibição",
+    "modal.metacritic": "Metacritic", "modal.loadingDetails": "A carregar detalhes…",
+    "modal.noDescription": "Sem descrição disponível.", "modal.screenshots": "Capturas",
+    "modal.similarGames": "Jogos semelhantes", "modal.moreLikeThis": "Títulos semelhantes",
+    "modal.availableOn": "Disponível em:", "modal.links": "Ligações:",
+    "modal.viewTMDB": "Ver no TMDB", "modal.officialSite": "Site oficial",
+    "modal.inCinemas": "Nos cinemas:", "modal.showtimes": "Sessões perto de ti",
+    "modal.checkingWatch": "A procurar onde ver…",
+    "modal.streamOn": "Streaming ({r}):", "modal.rentBuy": "Alugar ou comprar ({r}):",
+    "modal.noStreaming": "Ainda não está em nenhum serviço de streaming em {r}.",
+    "modal.noRegion": "Sem informação de streaming para a tua região.",
+    "modal.priceOn": "{price} na {store}", "modal.pcPrice": "Preço na {store} (USD):",
+    "modal.notRated": "Ainda sem avaliação", "modal.votes": "votos",
+    "mylist.export": "Exportar lista (JSON)", "mylist.import": "Importar lista", "mylist.saved": "{n} guardados",
+    "settings.title": "Definições", "settings.appearance": "Aparência",
+    "settings.behavior": "Comportamento", "settings.data": "Dados",
+    "settings.theme": "Tema", "settings.themeDesc": "Aspeto geral do site",
+    "theme.dark": "Escuro", "theme.light": "Claro", "theme.amoled": "AMOLED",
+    "settings.accent": "Cor de destaque", "settings.accentDesc": "Botões, realces e estados ativos",
+    "settings.cardSize": "Tamanho dos cartões", "settings.cardSizeDesc": "Densidade das grelhas",
+    "size.compact": "Compacto", "size.normal": "Normal", "size.large": "Grande",
+    "settings.animations": "Animações", "settings.animationsDesc": "Movimento em todo o site",
+    "motion.on": "Ligado", "motion.reduced": "Reduzido", "motion.off": "Desligado",
+    "settings.autoplay": "Rodar destaque", "settings.autoplayDesc": "Rodar o destaque do Início a cada 6 segundos",
+    "settings.landing": "Abrir o site em", "settings.landingDesc": "Que secção carrega primeiro",
+    "landing.auto": "Última visitada",
+    "settings.language": "Idioma", "settings.languageDesc": "Idioma da interface",
+    "language.auto": "Automático (navegador)",
+    "settings.backup": "Cópia das definições", "settings.backupDesc": "Levar as tuas preferências para outro dispositivo",
+    "settings.export": "Exportar JSON", "settings.import": "Importar",
+    "settings.listBackup": "Cópia da Minha lista",
+    "settings.reset": "Repor", "settings.resetDesc": "Voltar ao aspeto e comportamento predefinidos",
+    "settings.resetBtn": "Repor definições",
+    "about.title": "Sobre o Fliqora",
+    "about.tagline": "Um só lugar para descobrir filmes, jogos e séries — onde os ver, onde os comprar e quanto custam.",
+    "about.whatTitle": "O que faz",
+    "about.whatBody": "O Fliqora usa dados em tempo real de bases de dados reais para explorares títulos em tendência, filtrares por género, ordenares e pesquisares entre milhares de filmes, jogos e séries, e abrires qualquer título para veres tudo: avaliações, plataformas, disponibilidade em streaming, preços, capturas e recomendações semelhantes. Guarda favoritos na <strong>Minha lista</strong> e ajusta o aspeto nas <strong>Definições</strong>.",
+    "about.highlights": "Destaques",
+    "about.c1t": "Onde ver", "about.c1b": "Opções de streaming, aluguer e compra para filmes e séries, à tua região.",
+    "about.c2t": "Melhores preços", "about.c2b": "Preços de PC em tempo real com ligação direta à página real da loja.",
+    "about.c3t": "Atual, não empoeirado", "about.c3b": "O feed de jogos mostra o que é popular agora, não clássicos antigos.",
+    "about.c4t": "Minha lista", "about.c4b": "Guarda tudo com um toque — cópia local, exportável como JSON.",
+    "about.c5t": "À tua medida", "about.c5b": "Temas, cores de destaque, movimento e densidade, tudo ajustável em tempo real.",
+    "about.c6t": "Surpreende-me", "about.c6b": "Um clique abre um título aleatório quando não te decides.",
+    "about.dataTitle": "Dados e créditos",
+    "about.dataBody1": "Os dados de jogos são fornecidos pela <a href=\"https://rawg.io\" target=\"_blank\" rel=\"noopener noreferrer\">RAWG</a>, com preços da <a href=\"https://www.cheapshark.com\" target=\"_blank\" rel=\"noopener noreferrer\">CheapShark</a>. Dados, imagens e disponibilidade de filmes e séries vêm de <a href=\"https://www.themoviedb.org\" target=\"_blank\" rel=\"noopener noreferrer\">The Movie Database (TMDB)</a>. O Fliqora é um projeto não comercial e não é apoiado nem afiliado a estes serviços.",
+    "about.dataBody2": "Feito como um site de página única com HTML, CSS e JavaScript puros — sem frameworks, sem rastreio. Vê o código no <a href=\"https://github.com/alexanderbruun4-coder/media-hub\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>.",
+    "about.start": "Começar a explorar",
+    "footer.tagline": "filmes, jogos e séries num só lugar", "footer.about": "Sobre",
+  },
+
+  da: {
+    "nav.home": "Hjem", "nav.movies": "Film", "nav.games": "Spil",
+    "nav.tvshows": "Serier", "nav.mylist": "Min liste",
+    "aria.settings": "Indstillinger", "aria.surprise": "Overrask mig — åbn en tilfældig titel",
+    "aria.search": "Søg",
+    "search.home": "Vælg en sektion at søge i…", "search.movies": "Søg i film…",
+    "search.games": "Søg i spil…", "search.tvshows": "Søg i serier…",
+    "search.mylist": "Søg i din liste…",
+    "hero.trending": "Populært nu", "hero.featuredMovie": "★ Udvalgt film",
+    "hero.featuredGame": "★ Udvalgt spil", "hero.featuredTV": "★ Udvalgt serie",
+    "hero.viewDetails": "Se detaljer",
+    "noun.movies": "film", "noun.games": "spil", "noun.tvshows": "serier",
+    "common.loadMore": "Indlæs flere", "common.loading": "Indlæser…",
+    "common.showing": "Viser {a} af {b} {noun}",
+    "sort.label": "Sortér", "sort.trending": "Populært", "sort.allTime": "Altid populære",
+    "sort.topRated": "Bedst bedømt", "sort.newest": "Nyeste", "sort.nameAZ": "Navn A–Å",
+    "sort.popular": "Mest populære",
+    "genre.All": "Alle",
+    "empty.nothingTitle": "Intet fundet", "empty.nothingBody": "Prøv en anden søgning eller kategori.",
+    "empty.listTitle": "Din liste er tom",
+    "empty.listBody": "Tryk på hjertet på en film, et spil eller en serie for at gemme den her.",
+    "empty.listNoMatchTitle": "Ingen match i din liste", "empty.listNoMatchBody": "Prøv en anden søgning.",
+    "error.title": "Kunne ikke indlæse {noun}",
+    "error.body": "{msg} — tjek din internetforbindelse og prøv igen.",
+    "error.retry": "Prøv igen",
+    "row.games": "Populære spil", "row.movies": "Populære film", "row.tv": "Populære serier",
+    "row.seeAll": "Se alle",
+    "modal.released": "Udgivet", "modal.firstAired": "Første visning",
+    "modal.metacritic": "Metacritic", "modal.loadingDetails": "Indlæser detaljer…",
+    "modal.noDescription": "Ingen beskrivelse tilgængelig.", "modal.screenshots": "Skærmbilleder",
+    "modal.similarGames": "Lignende spil", "modal.moreLikeThis": "Lignende titler",
+    "modal.availableOn": "Tilgængelig på:", "modal.links": "Links:",
+    "modal.viewTMDB": "Se på TMDB", "modal.officialSite": "Officiel side",
+    "modal.inCinemas": "I biografen:", "modal.showtimes": "Spilletider i nærheden",
+    "modal.checkingWatch": "Finder hvor den kan ses…",
+    "modal.streamOn": "Stream på ({r}):", "modal.rentBuy": "Lej eller køb ({r}):",
+    "modal.noStreaming": "Endnu ikke på nogen streamingtjeneste i {r}.",
+    "modal.noRegion": "Ingen streaminginfo for din region.",
+    "modal.priceOn": "{price} på {store}", "modal.pcPrice": "Pris på {store} (USD):",
+    "modal.notRated": "Endnu ikke bedømt", "modal.votes": "stemmer",
+    "mylist.export": "Eksportér liste (JSON)", "mylist.import": "Importér liste", "mylist.saved": "{n} gemt",
+    "settings.title": "Indstillinger", "settings.appearance": "Udseende",
+    "settings.behavior": "Adfærd", "settings.data": "Data",
+    "settings.theme": "Tema", "settings.themeDesc": "Sidens overordnede udseende",
+    "theme.dark": "Mørkt", "theme.light": "Lyst", "theme.amoled": "AMOLED",
+    "settings.accent": "Accentfarve", "settings.accentDesc": "Knapper, fremhævninger og aktive tilstande",
+    "settings.cardSize": "Kortstørrelse", "settings.cardSizeDesc": "Hvor tæt gitteret er",
+    "size.compact": "Kompakt", "size.normal": "Normal", "size.large": "Stor",
+    "settings.animations": "Animationer", "settings.animationsDesc": "Bevægelse på hele siden",
+    "motion.on": "Til", "motion.reduced": "Reduceret", "motion.off": "Fra",
+    "settings.autoplay": "Autoafspil forsiden", "settings.autoplayDesc": "Skift forsidens fremhævning hvert 6. sekund",
+    "settings.landing": "Åbn siden på", "settings.landingDesc": "Hvilken sektion der indlæses først",
+    "landing.auto": "Senest besøgte",
+    "settings.language": "Sprog", "settings.languageDesc": "Grænsefladens sprog",
+    "language.auto": "Automatisk (browser)",
+    "settings.backup": "Backup af indstillinger", "settings.backupDesc": "Flyt dine præferencer til en anden enhed",
+    "settings.export": "Eksportér JSON", "settings.import": "Importér",
+    "settings.listBackup": "Backup af Min liste",
+    "settings.reset": "Nulstil", "settings.resetDesc": "Tilbage til standardudseende og -adfærd",
+    "settings.resetBtn": "Nulstil indstillinger",
+    "about.title": "Om Fliqora",
+    "about.tagline": "Ét sted til at opdage film, spil og serier — hvor du kan streame dem, hvor du kan købe dem, og hvad de koster.",
+    "about.whatTitle": "Hvad den gør",
+    "about.whatBody": "Fliqora henter live-data fra rigtige databaser, så du kan gennemse populære titler, filtrere efter genre, sortere og søge blandt tusindvis af film, spil og serier og åbne enhver titel for det hele: bedømmelser, platforme, streamingtilgængelighed, priser, skærmbilleder og lignende anbefalinger. Gem favoritter i <strong>Min liste</strong>, og justér udseendet i <strong>Indstillinger</strong>.",
+    "about.highlights": "Højdepunkter",
+    "about.c1t": "Hvor kan den ses", "about.c1b": "Streaming-, leje- og købsmuligheder for film &amp; serier, tilpasset din region.",
+    "about.c2t": "Bedste spilpriser", "about.c2b": "Live PC-priser med direkte link til butikkens rigtige side.",
+    "about.c3t": "Aktuelt, ikke støvet", "about.c3b": "Spil-feedet viser det, der er populært nu, ikke gamle klassikere.",
+    "about.c4t": "Min liste", "about.c4b": "Gem hvad som helst med et hjerte — gemt lokalt, kan eksporteres som JSON.",
+    "about.c5t": "Gjort til din", "about.c5b": "Temaer, accentfarver, bevægelse og tæthed kan alt justeres live.",
+    "about.c6t": "Overrask mig", "about.c6b": "Ét klik åbner en tilfældig titel, når du ikke kan bestemme dig.",
+    "about.dataTitle": "Data &amp; kreditering",
+    "about.dataBody1": "Spildata leveres af <a href=\"https://rawg.io\" target=\"_blank\" rel=\"noopener noreferrer\">RAWG</a>, med priser fra <a href=\"https://www.cheapshark.com\" target=\"_blank\" rel=\"noopener noreferrer\">CheapShark</a>. Film- &amp; seriedata, billeder og streamingtilgængelighed kommer fra <a href=\"https://www.themoviedb.org\" target=\"_blank\" rel=\"noopener noreferrer\">The Movie Database (TMDB)</a>. Fliqora er et ikke-kommercielt projekt og er hverken godkendt af eller tilknyttet disse tjenester.",
+    "about.dataBody2": "Bygget som en enkeltsides-side med ren HTML, CSS og JavaScript — ingen frameworks, ingen sporing. Se kildekoden på <a href=\"https://github.com/alexanderbruun4-coder/media-hub\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub</a>.",
+    "about.start": "Begynd at udforske",
+    "footer.tagline": "film, spil &amp; serier ét sted", "footer.about": "Om",
+  },
+};
+
+/** Update all static [data-i18n] text + placeholders, then reposition
+    the nav pill (label widths change with language). */
+function applyLanguage() {
+  document.documentElement.lang = langCode();
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.innerHTML = t(el.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  });
+  if (typeof positionNavPill === "function") positionNavPill();
+}
 
 /* TMDB genre ids are fixed constants — used to translate each
    item's genre_ids into a display name for the card tag. */
@@ -317,6 +850,15 @@ const sectionState = {
 /* Sort options per section (value → label). Games "trending" is a
    virtual sort: RAWG popularity restricted to the last 18 months so
    the feed isn't dominated by decade-old classics. */
+/* Sort value → i18n key (labels are translated at render time) */
+const SORT_LABEL_KEYS = {
+  trending: "sort.trending", "-added": "sort.allTime", "-rating": "sort.topRated",
+  "-released": "sort.newest", name: "sort.nameAZ",
+  "popularity.desc": "sort.popular", "vote_average.desc": "sort.topRated",
+  "primary_release_date.desc": "sort.newest", "title.asc": "sort.nameAZ",
+  "first_air_date.desc": "sort.newest", "name.asc": "sort.nameAZ",
+};
+
 const SORT_OPTIONS = {
   games: [
     ["trending", "Trending"],
@@ -511,7 +1053,7 @@ function switchSection(sectionKey) {
   const isSettings = sectionKey === "settings";
   const isAbout = sectionKey === "about";
   const isStatic = isHome || isSettings || isAbout; // no searchable card list
-  searchInput.placeholder = cfg.searchPlaceholder;
+  searchInput.placeholder = t(`search.${sectionKey}`, cfg.searchPlaceholder);
   searchInput.disabled = isStatic; // search targets a specific list
 
   document.querySelectorAll(".nav-link").forEach((link) => {
@@ -590,6 +1132,9 @@ function positionNavPill() {
    ============================================================ */
 
 function renderFilters() {
+  // Display is translated (genre.<label>, defaulting to the English
+  // label); data-category keeps the English value so genre → API
+  // mapping and the "All" special-case stay stable across languages.
   const chips = API_SECTIONS[currentSection].categories
     .map(
       (cat) => `
@@ -597,7 +1142,7 @@ function renderFilters() {
           class="filter-btn ${cat.label === currentCategory ? "active" : ""}"
           data-category="${escapeHtml(cat.label)}"
           type="button"
-        >${escapeHtml(cat.label)}</button>`
+        >${escapeHtml(t(`genre.${cat.label}`, cat.label))}</button>`
     )
     .join("");
 
@@ -605,10 +1150,10 @@ function renderFilters() {
   const sortOptions = SORT_OPTIONS[currentSection];
   const sortControl = sortOptions
     ? `<label class="sort-wrap">
-         <span class="sort-label">Sort</span>
-         <select class="sort-select" id="sortSelect" aria-label="Sort ${API_SECTIONS[currentSection].noun}">
+         <span class="sort-label">${escapeHtml(t("sort.label"))}</span>
+         <select class="sort-select" id="sortSelect" aria-label="${escapeHtml(t("sort.label"))}">
            ${sortOptions
-             .map(([value, label]) => `<option value="${value}">${label}</option>`)
+             .map(([value]) => `<option value="${value}">${escapeHtml(t(SORT_LABEL_KEYS[value] || value))}</option>`)
              .join("")}
          </select>
        </label>`
@@ -650,20 +1195,27 @@ function settingRowHtml(title, desc, controlHtml) {
 }
 
 function renderSettings() {
+  const landingOpt = (val, key) =>
+    `<option value="${val}" ${settings.landing === val ? "selected" : ""}>${escapeHtml(
+      key === "landing.auto" ? t("landing.auto") : t(key)
+    )}</option>`;
+  const langOpt = (val, label) =>
+    `<option value="${val}" ${settings.language === val ? "selected" : ""}>${escapeHtml(label)}</option>`;
+
   settingsPanel.innerHTML = `
-    <h1 class="settings-title">Settings</h1>
+    <h1 class="settings-title">${escapeHtml(t("settings.title"))}</h1>
 
     <section class="settings-group">
-      <h2>Appearance</h2>
+      <h2>${escapeHtml(t("settings.appearance"))}</h2>
       ${settingRowHtml(
-        "Theme",
-        "Overall look of the site",
-        segmentedHtml("theme", [["dark", "Dark"], ["light", "Light"], ["amoled", "AMOLED"]], "Theme")
+        t("settings.theme"),
+        t("settings.themeDesc"),
+        segmentedHtml("theme", [["dark", t("theme.dark")], ["light", t("theme.light")], ["amoled", t("theme.amoled")]], t("settings.theme"))
       )}
       ${settingRowHtml(
-        "Accent color",
-        "Buttons, highlights and active states",
-        `<div class="swatches" data-setting="accent" role="radiogroup" aria-label="Accent color">
+        t("settings.accent"),
+        t("settings.accentDesc"),
+        `<div class="swatches" data-setting="accent" role="radiogroup" aria-label="${escapeHtml(t("settings.accent"))}">
            ${Object.entries(ACCENT_PRESETS)
              .map(
                ([key, p]) => `
@@ -676,63 +1228,71 @@ function renderSettings() {
          </div>`
       )}
       ${settingRowHtml(
-        "Card size",
-        "How dense the browse grids are",
-        segmentedHtml("cardSize", [["compact", "Compact"], ["normal", "Normal"], ["large", "Large"]], "Card size")
+        t("settings.cardSize"),
+        t("settings.cardSizeDesc"),
+        segmentedHtml("cardSize", [["compact", t("size.compact")], ["normal", t("size.normal")], ["large", t("size.large")]], t("settings.cardSize"))
       )}
     </section>
 
     <section class="settings-group">
-      <h2>Behavior</h2>
+      <h2>${escapeHtml(t("settings.behavior"))}</h2>
       ${settingRowHtml(
-        "Animations",
-        "Motion across the whole site",
-        segmentedHtml("motion", [["on", "On"], ["reduced", "Reduced"], ["off", "Off"]], "Animations")
+        t("settings.language"),
+        t("settings.languageDesc"),
+        `<select class="sort-select" data-setting="language" aria-label="${escapeHtml(t("settings.language"))}">
+           ${langOpt("auto", t("language.auto"))}
+           ${Object.entries(LANGUAGES).map(([code, name]) => langOpt(code, name)).join("")}
+         </select>`
       )}
       ${settingRowHtml(
-        "Autoplay spotlight",
-        "Rotate the Home hero every 6 seconds",
+        t("settings.animations"),
+        t("settings.animationsDesc"),
+        segmentedHtml("motion", [["on", t("motion.on")], ["reduced", t("motion.reduced")], ["off", t("motion.off")]], t("settings.animations"))
+      )}
+      ${settingRowHtml(
+        t("settings.autoplay"),
+        t("settings.autoplayDesc"),
         `<button type="button" class="switch ${settings.autoplay ? "on" : ""}" data-setting="autoplay"
-                 role="switch" aria-checked="${settings.autoplay}" aria-label="Autoplay spotlight">
+                 role="switch" aria-checked="${settings.autoplay}" aria-label="${escapeHtml(t("settings.autoplay"))}">
            <span class="switch-knob"></span>
          </button>`
       )}
       ${settingRowHtml(
-        "Open the site on",
-        "Which section loads first",
-        `<select class="sort-select" data-setting="landing" aria-label="Default landing section">
-           <option value="auto" ${settings.landing === "auto" ? "selected" : ""}>Last visited</option>
-           <option value="home" ${settings.landing === "home" ? "selected" : ""}>Home</option>
-           <option value="movies" ${settings.landing === "movies" ? "selected" : ""}>Movies</option>
-           <option value="games" ${settings.landing === "games" ? "selected" : ""}>Games</option>
-           <option value="tvshows" ${settings.landing === "tvshows" ? "selected" : ""}>TV Shows</option>
+        t("settings.landing"),
+        t("settings.landingDesc"),
+        `<select class="sort-select" data-setting="landing" aria-label="${escapeHtml(t("settings.landing"))}">
+           ${landingOpt("auto", "landing.auto")}
+           ${landingOpt("home", "nav.home")}
+           ${landingOpt("movies", "nav.movies")}
+           ${landingOpt("games", "nav.games")}
+           ${landingOpt("tvshows", "nav.tvshows")}
          </select>`
       )}
     </section>
 
     <section class="settings-group">
-      <h2>Data</h2>
+      <h2>${escapeHtml(t("settings.data"))}</h2>
       ${settingRowHtml(
-        "Settings backup",
-        "Move your preferences to another device",
+        t("settings.backup"),
+        t("settings.backupDesc"),
         `<div class="setting-actions">
-           <button type="button" class="filter-btn tool-btn" id="exportSettings">Export JSON</button>
-           <button type="button" class="filter-btn tool-btn" id="importSettings">Import</button>
+           <button type="button" class="filter-btn tool-btn" id="exportSettings">${escapeHtml(t("settings.export"))}</button>
+           <button type="button" class="filter-btn tool-btn" id="importSettings">${escapeHtml(t("settings.import"))}</button>
          </div>`
       )}
       ${settingRowHtml(
-        "My List backup",
-        `${favorites.size} saved title${favorites.size === 1 ? "" : "s"}`,
+        t("settings.listBackup"),
+        tf("mylist.saved", { n: favorites.size }),
         `<div class="setting-actions">
-           <button type="button" class="filter-btn tool-btn" id="exportFavsSettings">Export JSON</button>
-           <button type="button" class="filter-btn tool-btn" id="importFavsSettings">Import</button>
+           <button type="button" class="filter-btn tool-btn" id="exportFavsSettings">${escapeHtml(t("settings.export"))}</button>
+           <button type="button" class="filter-btn tool-btn" id="importFavsSettings">${escapeHtml(t("settings.import"))}</button>
          </div>`
       )}
       ${settingRowHtml(
-        "Reset",
-        "Back to the default look and behavior",
+        t("settings.reset"),
+        t("settings.resetDesc"),
         `<div class="setting-actions">
-           <button type="button" class="filter-btn tool-btn danger" id="resetSettings">Reset settings</button>
+           <button type="button" class="filter-btn tool-btn danger" id="resetSettings">${escapeHtml(t("settings.resetBtn"))}</button>
          </div>`
       )}
     </section>`;
@@ -787,20 +1347,39 @@ settingsPanel.addEventListener("click", (e) => {
     return;
   }
   if (e.target.closest("#resetSettings")) {
+    const langChanged = settings.language !== DEFAULT_SETTINGS.language;
     settings = { ...DEFAULT_SETTINGS };
     applySettings();
     saveSettings();
-    renderSettings();
+    if (langChanged) changeLanguage();
+    else renderSettings();
   }
 });
 
 settingsPanel.addEventListener("change", (e) => {
   const select = e.target.closest("select[data-setting]");
   if (!select) return;
-  settings[select.dataset.setting] = select.value;
-  applySettings();
+  const key = select.dataset.setting;
+  settings[key] = select.value;
   saveSettings();
+  if (key === "language") {
+    changeLanguage();
+  } else {
+    applySettings();
+  }
 });
+
+/** Apply a new UI language: retranslate static chrome, drop caches
+    that hold text in the old language (TMDB content + snapshots),
+    and re-render the current view. Game/RAWG data is language-neutral
+    but is refetched too — harmless and keeps the code simple. */
+function changeLanguage() {
+  applyLanguage();
+  snapshotCache.clear();   // grid snapshots hold old-language items
+  detailsCache.clear();    // modal details/providers/recommendations
+  homeState.loaded = false; // Home rows refetch localized movie/TV data
+  switchSection(currentSection); // full re-render in the new language
+}
 
 /** Download any object as a JSON file. */
 function downloadJson(obj, filename) {
@@ -837,10 +1416,10 @@ function importSettings(file) {
    ============================================================ */
 
 function renderAbout() {
-  const feature = (title, body) => `
+  const feature = (tKey, bKey) => `
     <div class="about-card">
-      <h3>${title}</h3>
-      <p>${body}</p>
+      <h3>${t(tKey)}</h3>
+      <p>${t(bKey)}</p>
     </div>`;
 
   aboutPanel.innerHTML = `
@@ -850,67 +1429,44 @@ function renderAbout() {
           <path d="M12 1.5c.9 5.6 3.9 8.6 9.5 9.5-5.6.9-8.6 3.9-9.5 9.5-.9-5.6-3.9-8.6-9.5-9.5 5.6-.9 8.6-3.9 9.5-9.5Z"/>
         </svg>
       </span>
-      <h1>About Fliqora</h1>
-      <p class="about-tagline">
-        One place to discover movies, games and TV shows — see where to
-        stream them, where to buy them, and what they cost.
-      </p>
+      <h1>${t("about.title")}</h1>
+      <p class="about-tagline">${t("about.tagline")}</p>
     </header>
 
     <section class="settings-group about-prose">
-      <h2>What it does</h2>
-      <p>
-        Fliqora pulls live data from real databases so you can browse trending
-        titles, filter by genre, sort and search across thousands of movies,
-        games and shows, then open any title for the full picture: ratings,
-        platforms, streaming availability, store prices, screenshots and
-        similar recommendations. Save favourites to <strong>My List</strong>,
-        and tune the look and feel in <strong>Settings</strong>.
-      </p>
+      <h2>${t("about.whatTitle")}</h2>
+      <p>${t("about.whatBody")}</p>
     </section>
 
     <section class="settings-group">
-      <h2>Highlights</h2>
+      <h2>${t("about.highlights")}</h2>
       <div class="about-grid">
-        ${feature("Where to watch", "Streaming, rent and buy options for movies &amp; TV, tailored to your region.")}
-        ${feature("Best game prices", "Live PC prices with a direct link to the store's real page.")}
-        ${feature("Trending, not dusty", "Games feed leads with what's popular now, not decade-old classics.")}
-        ${feature("My List", "Heart anything to save it — backed up locally, exportable as JSON.")}
-        ${feature("Made yours", "Themes, accent colours, motion and density all live-adjustable.")}
-        ${feature("Surprise me", "One click opens a random title when you can't decide.")}
+        ${feature("about.c1t", "about.c1b")}
+        ${feature("about.c2t", "about.c2b")}
+        ${feature("about.c3t", "about.c3b")}
+        ${feature("about.c4t", "about.c4b")}
+        ${feature("about.c5t", "about.c5b")}
+        ${feature("about.c6t", "about.c6b")}
       </div>
     </section>
 
     <section class="settings-group about-prose">
-      <h2>Data &amp; credits</h2>
-      <p>
-        Game data is provided by
-        <a href="https://rawg.io" target="_blank" rel="noopener noreferrer">RAWG</a>,
-        with prices from
-        <a href="https://www.cheapshark.com" target="_blank" rel="noopener noreferrer">CheapShark</a>.
-        Movie &amp; TV data, images and streaming availability come from
-        <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">The Movie Database (TMDB)</a>.
-        Fliqora is a non-commercial project and is not endorsed by or
-        affiliated with any of these services.
-      </p>
-      <p>
-        Built as a single-page site with plain HTML, CSS and JavaScript — no
-        frameworks, no tracking. View the source on
-        <a href="https://github.com/alexanderbruun4-coder/media-hub" target="_blank" rel="noopener noreferrer">GitHub</a>.
-      </p>
+      <h2>${t("about.dataTitle")}</h2>
+      <p>${t("about.dataBody1")}</p>
+      <p>${t("about.dataBody2")}</p>
     </section>
 
     <div class="about-actions">
-      <button type="button" class="hero-btn" data-goto="home">Start browsing</button>
+      <button type="button" class="hero-btn" data-goto="home">${t("about.start")}</button>
     </div>`;
 }
 
 /** My List replaces the filter row with export/import tools. */
 function renderMyListTools() {
   filtersEl.innerHTML = `
-    <button class="filter-btn tool-btn" id="exportFavs" type="button">Export list (JSON)</button>
-    <button class="filter-btn tool-btn" id="importFavs" type="button">Import list</button>
-    <span class="list-count">${favorites.size} saved</span>`;
+    <button class="filter-btn tool-btn" id="exportFavs" type="button">${escapeHtml(t("mylist.export"))}</button>
+    <button class="filter-btn tool-btn" id="importFavs" type="button">${escapeHtml(t("mylist.import"))}</button>
+    <span class="list-count">${escapeHtml(tf("mylist.saved", { n: favorites.size }))}</span>`;
 }
 
 /** Render the My List grid (locally filtered by the search box). */
@@ -926,11 +1482,8 @@ function renderMyList() {
   if (items.length === 0) {
     showEmptyState(
       favorites.size === 0
-        ? {
-            title: "Your list is empty",
-            body: "Tap the heart on any movie, game, or show to save it here.",
-          }
-        : { title: "No matches in your list", body: "Try a different search." }
+        ? { title: t("empty.listTitle"), body: t("empty.listBody") }
+        : { title: t("empty.listNoMatchTitle"), body: t("empty.listNoMatchBody") }
     );
   } else {
     emptyStateEl.classList.add("hidden");
@@ -1068,10 +1621,9 @@ async function loadSection({ reset = false } = {}) {
           <path d="M12 3 2.5 19.5h19L12 3Z" stroke-linejoin="round"/>
           <path d="M12 9.5v4.5"/><circle cx="12" cy="16.8" r="0.4" fill="currentColor"/>
         </svg>
-        <h3>Couldn't load ${cfg.noun}</h3>
-        <p>${escapeHtml(err.message)} — check your internet connection
-        and API key, then try again.</p>
-        <button class="retry-btn" type="button">Retry</button>
+        <h3>${escapeHtml(tf("error.title", { noun: sectionNoun(sectionKey) }))}</h3>
+        <p>${escapeHtml(tf("error.body", { msg: err.message }))}</p>
+        <button class="retry-btn" type="button">${escapeHtml(t("error.retry"))}</button>
       `);
     } else {
       updateLoadMore(); // keep loaded cards; just re-enable Load More
@@ -1178,7 +1730,7 @@ function tmdbListUrl(tmdbType, page, genreId = null, query = "", sortBy = "popul
     api_key: TMDB_API_KEY,
     page: String(page),
     include_adult: "false",
-    language: "en-US",
+    language: tmdbLang(), // localizes titles + overviews
   });
   if (query) {
     params.set("query", query);
@@ -1295,13 +1847,13 @@ async function loadHome() {
   homeState.rows = [
     {
       key: "games",
-      title: "Trending Games",
+      title: t("row.games"),
       section: "games",
       items: gameItems.slice(HOME_SPOTLIGHT_COUNT, HOME_SPOTLIGHT_COUNT + HOME_ROW_COUNT),
     },
     {
       key: "movies",
-      title: "Popular Movies",
+      title: t("row.movies"),
       section: "movies",
       items: movies
         ? (movies.results || []).slice(0, HOME_ROW_COUNT).map((r) => normalizeTmdb(r, "movie"))
@@ -1309,7 +1861,7 @@ async function loadHome() {
     },
     {
       key: "tv",
-      title: "Popular TV Shows",
+      title: t("row.tv"),
       section: "tvshows",
       items: tv
         ? (tv.results || []).slice(0, HOME_ROW_COUNT).map((r) => normalizeTmdb(r, "tv"))
@@ -1432,7 +1984,7 @@ function setSpotlight(i) {
 
   const text = heroEl.querySelector(".hero-text");
   text.innerHTML = `
-    <span class="hero-label anim-item">Trending Now</span>
+    <span class="hero-label anim-item">${escapeHtml(t("hero.trending"))}</span>
     <h1 class="hero-title anim-item">${escapeHtml(item.title)}</h1>
     <div class="hero-meta anim-item">
       <span>${escapeHtml(item.year)}</span>
@@ -1440,7 +1992,7 @@ function setSpotlight(i) {
       <span>${escapeHtml(item.tag)}</span>
     </div>
     <p class="hero-description anim-item">${escapeHtml(item.description)}</p>
-    <button class="hero-btn anim-item" type="button">View Details</button>
+    <button class="hero-btn anim-item" type="button">${escapeHtml(t("hero.viewDetails"))}</button>
   `;
   text
     .querySelector(".hero-btn")
@@ -1509,7 +2061,7 @@ function renderHomeRows() {
         <div class="row-head">
           <h2>${escapeHtml(row.title)}</h2>
           <a href="#" class="see-all" data-section="${row.section}">
-            See All <span aria-hidden="true">→</span>
+            ${escapeHtml(t("row.seeAll"))} <span aria-hidden="true">→</span>
           </a>
         </div>
         <div class="row-wrap">
@@ -1562,8 +2114,8 @@ function renderSection(appendFrom = 0) {
   const state = sectionState[currentSection];
   if (state.items.length === 0) {
     showEmptyState({
-      title: "Nothing found",
-      body: "Try a different search or category.",
+      title: t("empty.nothingTitle"),
+      body: t("empty.nothingBody"),
     });
   } else {
     emptyStateEl.classList.add("hidden");
@@ -1599,6 +2151,17 @@ function showEmptyState({ title, body }) {
 }
 
 /** Hero banner: the section's featured item (top of the popular list). */
+/* Section → hero-label i18n key */
+const HERO_LABEL_KEYS = {
+  home: "hero.trending", movies: "hero.featuredMovie",
+  games: "hero.featuredGame", tvshows: "hero.featuredTV",
+};
+
+/** Translated section noun for counts/errors (falls back to config). */
+function sectionNoun(section) {
+  return t(`noun.${section}`, API_SECTIONS[section].noun);
+}
+
 function renderHero() {
   heroEl.classList.remove("hero--spotlight");
   const item = sectionState[currentSection].hero;
@@ -1611,7 +2174,7 @@ function renderHero() {
     <img class="hero-bg kenburns" src="${item.heroImage}" alt="" aria-hidden="true" />
     <div class="hero-content">
       <div class="hero-text">
-        <span class="hero-label anim-item">${escapeHtml(API_SECTIONS[currentSection].heroLabel)}</span>
+        <span class="hero-label anim-item">${escapeHtml(t(HERO_LABEL_KEYS[currentSection] || "", API_SECTIONS[currentSection].heroLabel))}</span>
         <h1 class="hero-title anim-item">${escapeHtml(item.title)}</h1>
         <div class="hero-meta anim-item">
           <span>${escapeHtml(item.year)}</span>
@@ -1619,7 +2182,7 @@ function renderHero() {
           <span>${escapeHtml(item.tag)}</span>
         </div>
         <p class="hero-description anim-item">${escapeHtml(item.description)}</p>
-        <button class="hero-btn anim-item" type="button">View Details</button>
+        <button class="hero-btn anim-item" type="button">${escapeHtml(t("hero.viewDetails"))}</button>
       </div>
     </div>
   `;
@@ -1661,12 +2224,16 @@ function updateLoadMore() {
     return;
   }
   loadMoreWrap.classList.remove("hidden");
-  loadMoreCount.textContent = `Showing ${state.items.length.toLocaleString()} of ${state.totalCount.toLocaleString()} ${API_SECTIONS[currentSection].noun}`;
+  loadMoreCount.textContent = tf("common.showing", {
+    a: state.items.length.toLocaleString(),
+    b: state.totalCount.toLocaleString(),
+    noun: sectionNoun(currentSection),
+  });
   loadMoreBtn.classList.toggle("hidden", !state.hasMore && !state.loading);
   loadMoreBtn.disabled = state.loading;
   loadMoreBtn.innerHTML = state.loading
-    ? `<span class="spinner" aria-hidden="true"></span>Loading…`
-    : "Load More";
+    ? `<span class="spinner" aria-hidden="true"></span>${escapeHtml(t("common.loading"))}`
+    : escapeHtml(t("common.loadMore"));
 }
 
 /** Replace the grid with a status/error message (spans full width). */
@@ -1897,18 +2464,18 @@ async function loadGameExtras(item, itemKey) {
   if (openModalItemKey !== itemKey) return;
   const shotsSection = shots.length
     ? `<div class="modal-section">
-         <h3>Screenshots</h3>
+         <h3>${escapeHtml(t("modal.screenshots"))}</h3>
          <div class="shot-row">${shots
            .map(
              (s) => `<img class="shot" src="${s.image}" data-full="${s.image}" width="256" height="144"
-                        alt="Screenshot" loading="lazy" decoding="async" />`
+                        alt="${escapeHtml(t("modal.screenshots"))}" loading="lazy" decoding="async" />`
            )
            .join("")}</div>
        </div>`
     : "";
   const similarSection = similar.length
     ? `<div class="modal-section">
-         <h3>Similar games</h3>
+         <h3>${escapeHtml(t("modal.similarGames"))}</h3>
          <div class="shot-row">${similar.map((it) => miniCardHtml(it)).join("")}</div>
        </div>`
     : "";
@@ -1922,7 +2489,7 @@ async function loadTmdbExtras(item, itemKey) {
     let similar = detailsCache.get(cacheId);
     if (!similar) {
       const res = await fetchJson(
-        `${TMDB_BASE}/${item.kind}/${item.id}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
+        `${TMDB_BASE}/${item.kind}/${item.id}/recommendations?api_key=${TMDB_API_KEY}&language=${tmdbLang()}`
       );
       similar = (res.results || [])
         .slice(0, 10)
@@ -1932,7 +2499,7 @@ async function loadTmdbExtras(item, itemKey) {
     if (openModalItemKey !== itemKey || similar.length === 0) return;
     modalExtra.innerHTML = `
       <div class="modal-section">
-        <h3>More like this</h3>
+        <h3>${escapeHtml(t("modal.moreLikeThis"))}</h3>
         <div class="shot-row">${similar.map((it) => miniCardHtml(it)).join("")}</div>
       </div>`;
   } catch {
@@ -2005,14 +2572,14 @@ async function fillGameModal(item, itemKey) {
     .slice(0, 2)
     .map((x) => x.name)
     .join(" / ") || "Game";
-  modalMeta.textContent = `Released: ${g.released || "TBA"}`;
+  modalMeta.textContent = `${t("modal.released")}: ${g.released || "TBA"}`;
   if (g.metacritic) {
-    countUpRating(modalRating, g.metacritic, { prefix: "Metacritic: ", suffix: "/100" });
+    countUpRating(modalRating, g.metacritic, { prefix: `${t("modal.metacritic")}: `, suffix: "/100" });
   } else {
     countUpRating(modalRating, g.rating || 0, { decimals: 1, prefix: "★ ", suffix: " / 5" });
   }
   modalPlatforms.innerHTML = platformChipsHtml(g.parent_platforms);
-  modalDescription.textContent = "Loading details…";
+  modalDescription.textContent = t("modal.loadingDetails");
 
   try {
     const cacheId = `game:${g.id}`;
@@ -2027,13 +2594,13 @@ async function fillGameModal(item, itemKey) {
     }
     if (openModalItemKey !== itemKey) return; // user opened something else
     modalDescription.textContent = truncate(
-      payload.details.description_raw || "No description available.",
+      payload.details.description_raw || t("modal.noDescription"),
       600
     );
     modalStores.innerHTML = storeButtonsHtml(g, payload.storeLinks);
   } catch (err) {
     if (openModalItemKey !== itemKey) return;
-    modalDescription.textContent = "Couldn't load details for this game.";
+    modalDescription.textContent = t("modal.noDescription");
   }
 
   // Price row: Steam first, falling back to Epic Games, then GOG
@@ -2072,13 +2639,13 @@ async function fillGameModal(item, itemKey) {
     const sale = Number(chosen.salePrice);
     const retail = Number(chosen.retailPrice);
     const was = retail > sale ? ` <s>$${retail.toFixed(2)}</s>` : "";
-    const priceText = sale === 0 ? "Free" : `$${sale.toFixed(2)}`;
+    const priceText = sale === 0 ? "$0.00" : `$${sale.toFixed(2)}`;
     modalStores.insertAdjacentHTML(
       "afterbegin",
-      `<span class="modal-stores-label">${escapeHtml(chosen.label)} price (USD):</span>
+      `<span class="modal-stores-label">${escapeHtml(tf("modal.pcPrice", { store: chosen.label }))}</span>
        <a class="store-btn price" href="${escapeHtml(chosen.url)}"
           target="_blank" rel="noopener noreferrer">
-         ${priceText} on ${escapeHtml(chosen.label)}${was} ↗
+         ${escapeHtml(tf("modal.priceOn", { price: priceText, store: chosen.label }))}${was} ↗
        </a>`
     );
   } catch (err) {
@@ -2139,7 +2706,7 @@ function storeButtonsHtml(game, storeLinks) {
   if (links.length === 0) return "";
 
   return (
-    `<span class="modal-stores-label">Available on:</span>` +
+    `<span class="modal-stores-label">${escapeHtml(t("modal.availableOn"))}</span>` +
     links
       .map(
         (s) => `
@@ -2197,40 +2764,40 @@ async function fillTmdbModal(item, itemKey) {
     : FALLBACK_IMG;
   modalImage.alt = `${item.title} poster`;
   modalMeta.textContent = isMovie
-    ? `Released: ${r.release_date || "TBA"}`
-    : `First aired: ${r.first_air_date || "TBA"}`;
+    ? `${t("modal.released")}: ${r.release_date || "TBA"}`
+    : `${t("modal.firstAired")}: ${r.first_air_date || "TBA"}`;
   if (r.vote_average) {
     countUpRating(modalRating, r.vote_average, {
       decimals: 1,
       prefix: "★ ",
-      suffix: ` / 10 (${(r.vote_count || 0).toLocaleString()} votes)`,
+      suffix: ` / 10 (${(r.vote_count || 0).toLocaleString()} ${t("modal.votes")})`,
     });
   } else {
-    modalRating.textContent = "Not rated yet";
+    modalRating.textContent = t("modal.notRated");
   }
   modalPlatforms.textContent = (r.genre_ids || [])
     .map((id) => genreNames[id])
     .filter(Boolean)
     .join(" · ");
   modalDescription.textContent =
-    truncate(item.description, 600) || "Loading details…";
+    truncate(item.description, 600) || t("modal.loadingDetails");
 
   // Immediate rows: cinema showtimes (recent movies), a slot where the
   // streaming providers appear once fetched, and the TMDB page link.
   const tmdbUrl = `https://www.themoviedb.org/${item.kind}/${item.id}`;
   const cinemaRow =
     isMovie && isLikelyInCinemas(r.release_date)
-      ? `<span class="modal-stores-label">In cinemas:</span>
+      ? `<span class="modal-stores-label">${escapeHtml(t("modal.inCinemas"))}</span>
          <a class="store-btn" target="_blank" rel="noopener noreferrer"
             href="https://www.google.com/search?q=${encodeURIComponent(item.title + " showtimes near me")}">
-           Showtimes near you ↗
+           ${escapeHtml(t("modal.showtimes"))} ↗
          </a>`
       : "";
   modalStores.innerHTML = `
     ${cinemaRow}
-    <span class="watch-slot"><span class="modal-stores-label loading-pulse">Checking where to watch…</span></span>
-    <span class="modal-stores-label">Links:</span>
-    <a class="store-btn primary" href="${tmdbUrl}" target="_blank" rel="noopener noreferrer">View on TMDB ↗</a>
+    <span class="watch-slot"><span class="modal-stores-label loading-pulse">${escapeHtml(t("modal.checkingWatch"))}</span></span>
+    <span class="modal-stores-label">${escapeHtml(t("modal.links"))}</span>
+    <a class="store-btn primary" href="${tmdbUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("modal.viewTMDB"))} ↗</a>
   `;
   const watchSlot = modalStores.querySelector(".watch-slot");
 
@@ -2241,7 +2808,7 @@ async function fillTmdbModal(item, itemKey) {
     if (!payload) {
       const [details, providers] = await Promise.all([
         fetchJson(
-          `${TMDB_BASE}/${item.kind}/${item.id}?api_key=${TMDB_API_KEY}&language=en-US`
+          `${TMDB_BASE}/${item.kind}/${item.id}?api_key=${TMDB_API_KEY}&language=${tmdbLang()}`
         ),
         fetchJson(
           `${TMDB_BASE}/${item.kind}/${item.id}/watch/providers?api_key=${TMDB_API_KEY}`
@@ -2275,7 +2842,7 @@ async function fillTmdbModal(item, itemKey) {
       modalStores.insertAdjacentHTML(
         "beforeend",
         `<a class="store-btn" href="${escapeHtml(details.homepage)}"
-            target="_blank" rel="noopener noreferrer">Official Site ↗</a>`
+            target="_blank" rel="noopener noreferrer">${escapeHtml(t("modal.officialSite"))} ↗</a>`
       );
     }
 
@@ -2293,13 +2860,13 @@ async function fillTmdbModal(item, itemKey) {
       ];
       const watchLink = regionData.link || tmdbUrl;
       const html =
-        providerGroupHtml(`Stream on (${usedRegion}):`, regionData.flatrate, watchLink) +
-        providerGroupHtml(`Rent or buy (${usedRegion}):`, rentBuyUnique, watchLink);
+        providerGroupHtml(tf("modal.streamOn", { r: usedRegion }), regionData.flatrate, watchLink) +
+        providerGroupHtml(tf("modal.rentBuy", { r: usedRegion }), rentBuyUnique, watchLink);
       watchSlot.innerHTML =
         html ||
-        `<span class="modal-stores-label">Not on any streaming service in ${usedRegion} yet.</span>`;
+        `<span class="modal-stores-label">${escapeHtml(tf("modal.noStreaming", { r: usedRegion }))}</span>`;
     } else {
-      watchSlot.innerHTML = `<span class="modal-stores-label">No streaming info available for your region.</span>`;
+      watchSlot.innerHTML = `<span class="modal-stores-label">${escapeHtml(t("modal.noRegion"))}</span>`;
     }
   } catch (err) {
     // Non-fatal: modal already shows the list data
@@ -2603,6 +3170,7 @@ function truncate(str, n = 600) {
    ============================================================ */
 loadSettings();
 applySettings();
+applyLanguage(); // translate static chrome before the first render
 loadFavorites();
 initCardTilt();
 

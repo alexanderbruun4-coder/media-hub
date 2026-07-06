@@ -27,7 +27,7 @@
 
   <!-- ?v= is a cache-buster: bump it when deploying big changes so
        browsers/CDNs can't serve stale copies of these files -->
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=15" />
 </head>
 <body>
 
@@ -50,12 +50,13 @@
 
       <nav class="nav-links" id="navLinks" aria-label="Sections">
         <span class="nav-pill" id="navPill" aria-hidden="true"></span>
-        <a href="#" class="nav-link active" data-section="home">Home</a>
-        <a href="#" class="nav-link" data-section="movies">Movies</a>
-        <a href="#" class="nav-link" data-section="games">Games</a>
-        <a href="#" class="nav-link" data-section="tvshows">TV Shows</a>
-        <a href="#" class="nav-link" data-section="mylist">My List</a>
-        <a href="#" class="nav-link nav-link--icon" data-section="settings" aria-label="Settings">
+        <a href="#" class="nav-link active" data-section="home" data-i18n="nav.home">Home</a>
+        <a href="#" class="nav-link" data-section="movies" data-i18n="nav.movies">Movies</a>
+        <a href="#" class="nav-link" data-section="games" data-i18n="nav.games">Games</a>
+        <a href="#" class="nav-link" data-section="tvshows" data-i18n="nav.tvshows">TV Shows</a>
+        <a href="#" class="nav-link" data-section="mylist" data-i18n="nav.mylist">My List</a>
+        <a href="#" class="nav-link nav-link--icon" data-section="settings"
+           data-i18n-aria="aria.settings" aria-label="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3.2"/>
@@ -75,12 +76,14 @@
           class="search-input"
           placeholder="Search this section…"
           autocomplete="off"
+          data-i18n-aria="aria.search"
           aria-label="Search"
         />
       </div>
 
       <!-- Opens a random title's details -->
       <button class="icon-btn" id="surpriseBtn" type="button"
+              data-i18n-aria="aria.surprise"
               aria-label="Surprise me — open a random title" title="Surprise me">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -179,8 +182,8 @@
 
   <footer class="footer">
     <p>
-      Fliqora — movies, games &amp; TV in one place ·
-      <a href="#" class="footer-link" data-section="about">About</a>
+      Fliqora — <span data-i18n="footer.tagline">movies, games &amp; TV in one place</span> ·
+      <a href="#" class="footer-link" data-section="about" data-i18n="footer.about">About</a>
     </p>
     <p class="footer-credits">
       Game data provided by <a href="https://rawg.io" target="_blank" rel="noopener noreferrer">RAWG</a>
@@ -191,6 +194,6 @@
   <!-- All content loads live from the TMDB and RAWG APIs — config
        and section definitions are at the top of script.js.
        (?v= cache-buster: keep in sync with the stylesheet above) -->
-  <script src="script.js?v=14"></script>
+  <script src="script.js?v=15"></script>
 </body>
 </html>
