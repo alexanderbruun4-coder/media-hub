@@ -35,7 +35,9 @@ END_CARD_SECONDS = 3        # last N seconds freeze on the final-score card
 MATCH_SECONDS = VIDEO_SECONDS - END_CARD_SECONDS
 PHYSICS_SUBSTEPS = 2        # physics steps per frame (anti-tunneling)
 
-SEED = None                 # set an int for a reproducible match
+SEED = None                 # set an int for a reproducible match (overrides TARGET_SCORE)
+TARGET_SCORE = (5, 4)       # desired final (ENGLAND, ARGENTINA) score, or None for random
+SEED_SEARCH_LIMIT = 20000   # how many seeds to try when hunting TARGET_SCORE
 
 ARENA_RADIUS = 450
 ARENA_CENTER = (WIDTH // 2, 1000)
@@ -607,23 +609,29 @@ def draw_trails(canvas, balls):
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
-def main():
-    if SEED is not None:
-        random.seed(SEED)
+def run_match(render=True, verbose=True):
+    """Run one match with the current global random state.
+
+    render=False skips all drawing/encoding and only simulates the physics —
+    used to search for a seed that produces TARGET_SCORE. Physics consumes the
+    global `random` stream identically in both modes (visual effects draw from
+    their own RNG), so a simulated seed replays exactly when rendered.
+    """
+    visual_rng = random.Random(99)  # shake offsets etc: never touches physics
 
     pygame.init()
-    fonts = {
-        "title": pygame.font.Font(None, 82),
-        "name": pygame.font.Font(None, 52),
-        "score": pygame.font.Font(None, 92),
-        "cta": pygame.font.Font(None, 56),
-        "goal": pygame.font.Font(None, 230),
-        "final": pygame.font.Font(None, 190),
-        "winner": pygame.font.Font(None, 96),
-    }
-
-    background = make_background()
-    ring = make_arena_ring()
+    if render:
+        fonts = {
+            "title": pygame.font.Font(None, 82),
+            "name": pygame.font.Font(None, 52),
+            "score": pygame.font.Font(None, 92),
+            "cta": pygame.font.Font(None, 56),
+            "goal": pygame.font.Font(None, 230),
+            "final": pygame.font.Font(None, 190),
+            "winner": pygame.font.Font(None, 96),
+        }
+        background = make_background()
+        ring = make_arena_ring()
 
     football = Ball(ARENA_CENTER, random_velocity(FOOTBALL_SPAWN_SPEED),
                     FOOTBALL_RADIUS, make_football_texture(FOOTBALL_RADIUS),
@@ -649,19 +657,19 @@ def main():
             last_sound_time[kind] = when
             sound_events.append((when, kind, intensity))
 
-    tmp_video = OUTPUT_FILE + ".video.tmp.mp4"
-    tmp_wav = OUTPUT_FILE + ".audio.tmp.wav"
-    writer = imageio_ffmpeg.write_frames(
-        tmp_video, size=(WIDTH, HEIGHT), fps=FPS, quality=8, macro_block_size=1)
-    writer.send(None)
+    if render:
+        tmp_video = OUTPUT_FILE + ".video.tmp.mp4"
+        tmp_wav = OUTPUT_FILE + ".audio.tmp.wav"
+        writer = imageio_ffmpeg.write_frames(
+            tmp_video, size=(WIDTH, HEIGHT), fps=FPS, quality=8, macro_block_size=1)
+        writer.send(None)
+        frame = pygame.Surface((WIDTH, HEIGHT))
+        canvas = pygame.Surface((WIDTH, HEIGHT))
+        print(f"Rendering {VIDEO_SECONDS}s @ {FPS}fps -> {OUTPUT_FILE}")
     add_sound(0.15, "whistle")  # kickoff
 
-    frame = pygame.Surface((WIDTH, HEIGHT))
-    canvas = pygame.Surface((WIDTH, HEIGHT))
     total_match_frames = MATCH_SECONDS * FPS
     dt = 1.0 / (FPS * PHYSICS_SUBSTEPS)
-
-    print(f"Rendering {VIDEO_SECONDS}s @ {FPS}fps -> {OUTPUT_FILE}")
     for f in range(total_match_frames):
         t = f / FPS
         rot = (SPIN_SPEED_DEG * t) % 360.0
@@ -689,9 +697,10 @@ def main():
                     goal_timer = GOAL_CELEBRATION_SECONDS
                     shake = SHAKE_GOAL
                     add_sound(t, "cheer")
-                    print(f"[SOUND] crowd cheer")
-                    print(f"  {t:5.1f}s  GOAL! {scorer} scores "
-                          f"-> ENGLAND {score_e} - {score_a} ARGENTINA")
+                    if verbose:
+                        print(f"[SOUND] crowd cheer")
+                        print(f"  {t:5.1f}s  GOAL! {scorer} scores "
+                              f"-> ENGLAND {score_e} - {score_a} ARGENTINA")
             for i in range(len(active)):
                 for j in range(i + 1, len(active)):
                     impact = collide_pair(active[i], active[j])
@@ -708,6 +717,9 @@ def main():
                 football.vel = random_velocity(FOOTBALL_SPAWN_SPEED)
                 football.trail.clear()
                 add_sound(t, "whistle")  # restart after the goal
+
+        if not render:
+            continue
 
         for ball in balls:
             if not (ball.is_football and goal_timer > 0):
@@ -728,8 +740,8 @@ def main():
         frame.fill(COL_BG_BOTTOM)
         ox = oy = 0
         if shake > 0.5:
-            ox = random.randint(-int(shake), int(shake))
-            oy = random.randint(-int(shake), int(shake))
+            ox = visual_rng.randint(-int(shake), int(shake))
+            oy = visual_rng.randint(-int(shake), int(shake))
         shake *= SHAKE_DECAY
         frame.blit(canvas, (ox, oy))
         writer.send(pygame.image.tobytes(frame, "RGB"))
@@ -737,6 +749,9 @@ def main():
         if f % (FPS * 10) == 0:
             print(f"  ... {t:4.0f}s / {MATCH_SECONDS}s  "
                   f"(ENGLAND {score_e} - {score_a} ARGENTINA)")
+
+    if not render:
+        return score_e, score_a
 
     # ----- frozen final-score card -----
     draw_arena(canvas, background, ring, (SPIN_SPEED_DEG * MATCH_SECONDS) % 360.0)
@@ -769,6 +784,35 @@ def main():
         result = "IT'S A DRAW!"
     print(f"\nDone -> {OUTPUT_FILE}")
     print(f"FINAL SCORE: ENGLAND {score_e} - {score_a} ARGENTINA  ({result})")
+    return score_e, score_a
+
+
+def find_seed_for_score(target):
+    """Simulate matches (no rendering) until one ends with the target score."""
+    print(f"Searching for a seed that ends ENGLAND {target[0]} - {target[1]} ARGENTINA ...")
+    for seed in range(SEED_SEARCH_LIMIT):
+        random.seed(seed)
+        score = run_match(render=False, verbose=False)
+        if seed % 25 == 0 or score == target:
+            print(f"  seed {seed:4d}: ENGLAND {score[0]} - {score[1]} ARGENTINA")
+        if score == target:
+            print(f"Found seed {seed}.")
+            return seed
+    raise SystemExit(
+        f"No seed below {SEED_SEARCH_LIMIT} gives {target[0]}-{target[1]}; "
+        "adjust TARGET_SCORE or raise SEED_SEARCH_LIMIT.")
+
+
+def main():
+    if SEED is not None:
+        seed = SEED
+    elif TARGET_SCORE is not None:
+        seed = find_seed_for_score(TARGET_SCORE)
+    else:
+        seed = random.randrange(1 << 30)
+    print(f"Match seed: {seed}")
+    random.seed(seed)
+    run_match()
 
 
 if __name__ == "__main__":
