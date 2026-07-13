@@ -34,7 +34,7 @@ SEED = None                 # set an int for a reproducible match
 
 ARENA_RADIUS = 450
 ARENA_CENTER = (WIDTH // 2, 1000)
-GOAL_GAP_DEG = 70           # arc width of each goal opening
+GOAL_GAP_DEG = 28           # arc width of each goal opening
 NET_DEPTH = 56              # how far the net extends beyond the wall
 POST_RADIUS = 12            # collision posts at the gap edges
 
