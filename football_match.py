@@ -42,6 +42,8 @@ ARENA_CENTER = (WIDTH // 2, 1000)
 GOAL_GAP_DEG = 28           # arc width of each goal opening
 NET_DEPTH = 56              # how far the net extends beyond the wall
 POST_RADIUS = 12            # collision posts at the gap edges
+SPIN_SPEED_DEG = 18.0       # arena rotation speed (degrees/second, clockwise)
+WALL_SPIN_FRICTION = 0.25   # how much the moving wall drags a bouncing ball
 
 GRAVITY = 900.0             # px / s^2
 WALL_DAMPING = 0.98         # energy kept on wall bounce
@@ -199,7 +201,7 @@ def make_argentina_texture(radius):
 
 
 # ----------------------------------------------------------------------------
-# Static background: gradient, bokeh, pitch, wall, goals + nets
+# Static background (gradient + bokeh) and the rotating arena ring
 # ----------------------------------------------------------------------------
 def make_background():
     bg = pygame.Surface((WIDTH, HEIGHT))
@@ -219,6 +221,15 @@ def make_background():
         col = rng.choice([(255, 230, 180), (180, 200, 255), (255, 255, 255)])
         pygame.draw.circle(layer, (*col, rng.randint(8, 26)), (int(x), int(y)), rad)
     bg.blit(layer, (0, 0))
+    return bg
+
+
+def make_arena_ring():
+    """Pitch + wall + goals on one square surface, rotated as a whole each frame."""
+    margin = NET_DEPTH + 16
+    s = 2 * (ARENA_RADIUS + margin)
+    c = (s // 2, s // 2)
+    ring = pygame.Surface((s, s), pygame.SRCALPHA)
 
     # Pitch: dark green circle with mowed stripes + faint markings
     d = ARENA_RADIUS * 2
@@ -233,7 +244,7 @@ def make_background():
     pygame.draw.circle(pitch, COL_PITCH_LINE, (ARENA_RADIUS, ARENA_RADIUS), 105, 3)
     pygame.draw.circle(pitch, COL_PITCH_LINE, (ARENA_RADIUS, ARENA_RADIUS), 6)
     pygame.draw.line(pitch, COL_PITCH_LINE, (ARENA_RADIUS, 0), (ARENA_RADIUS, d), 3)
-    bg.blit(pitch, (ARENA_CENTER[0] - ARENA_RADIUS, ARENA_CENTER[1] - ARENA_RADIUS))
+    ring.blit(pitch, (c[0] - ARENA_RADIUS, c[1] - ARENA_RADIUS))
 
     # Nets + goal frames (behind the wall so balls fly "into" them)
     for gap_center, col in ((LEFT_GAP_CENTER, COL_ENGLAND), (RIGHT_GAP_CENTER, COL_ARGENTINA)):
@@ -241,29 +252,37 @@ def make_background():
         # net: radial strings + concentric strings
         a = a0
         while a <= a1 + 0.1:
-            pygame.draw.line(bg, COL_NET, polar(ARENA_CENTER, ARENA_RADIUS, a),
-                             polar(ARENA_CENTER, ARENA_RADIUS + NET_DEPTH, a), 2)
+            pygame.draw.line(ring, COL_NET, polar(c, ARENA_RADIUS, a),
+                             polar(c, ARENA_RADIUS + NET_DEPTH, a), 2)
             a += 7
         for rr in (18, 36, 54):
-            seg_arc(bg, COL_NET, ARENA_CENTER, ARENA_RADIUS + rr, a0, a1, 2)
+            seg_arc(ring, COL_NET, c, ARENA_RADIUS + rr, a0, a1, 2)
         # colored frame: two posts + crossbar arc + white accent
         for edge in (a0, a1):
-            pygame.draw.line(bg, col, polar(ARENA_CENTER, ARENA_RADIUS - 6, edge),
-                             polar(ARENA_CENTER, ARENA_RADIUS + NET_DEPTH, edge), 10)
-        seg_arc(bg, col, ARENA_CENTER, ARENA_RADIUS + NET_DEPTH, a0, a1, 12)
-        seg_arc(bg, COL_WHITE, ARENA_CENTER, ARENA_RADIUS + NET_DEPTH + 9, a0, a1, 4)
+            pygame.draw.line(ring, col, polar(c, ARENA_RADIUS - 6, edge),
+                             polar(c, ARENA_RADIUS + NET_DEPTH, edge), 10)
+        seg_arc(ring, col, c, ARENA_RADIUS + NET_DEPTH, a0, a1, 12)
+        seg_arc(ring, COL_WHITE, c, ARENA_RADIUS + NET_DEPTH + 9, a0, a1, 4)
 
     # Arena wall (two arcs between the gaps) + collision posts at gap edges
-    seg_arc(bg, COL_WALL, ARENA_CENTER, ARENA_RADIUS,
+    seg_arc(ring, COL_WALL, c, ARENA_RADIUS,
             RIGHT_GAP_CENTER + GAP_HALF, LEFT_GAP_CENTER - GAP_HALF, 10)
-    seg_arc(bg, COL_WALL, ARENA_CENTER, ARENA_RADIUS,
+    seg_arc(ring, COL_WALL, c, ARENA_RADIUS,
             LEFT_GAP_CENTER + GAP_HALF, 360.0 - GAP_HALF, 10)
     for gap_center in (LEFT_GAP_CENTER, RIGHT_GAP_CENTER):
         for edge in (gap_center - GAP_HALF, gap_center + GAP_HALF):
-            p = polar(ARENA_CENTER, ARENA_RADIUS, edge)
-            pygame.draw.circle(bg, COL_WHITE, (int(p[0]), int(p[1])), POST_RADIUS)
-            pygame.draw.circle(bg, (60, 60, 70), (int(p[0]), int(p[1])), POST_RADIUS, 3)
-    return bg
+            p = polar(c, ARENA_RADIUS, edge)
+            pygame.draw.circle(ring, COL_WHITE, (int(p[0]), int(p[1])), POST_RADIUS)
+            pygame.draw.circle(ring, (60, 60, 70), (int(p[0]), int(p[1])), POST_RADIUS, 3)
+    return ring
+
+
+def draw_arena(canvas, background, ring, rot_deg):
+    canvas.blit(background, (0, 0))
+    # +rot in our y-down angle convention is clockwise on screen; pygame rotates
+    # counterclockwise for positive angles, so rotate by -rot.
+    rotated = pygame.transform.rotozoom(ring, -rot_deg, 1.0)
+    canvas.blit(rotated, rotated.get_rect(center=ARENA_CENTER))
 
 
 # ----------------------------------------------------------------------------
@@ -309,8 +328,12 @@ def clamp_speed(ball):
         ball.vel[1] *= k
 
 
-def step_ball(ball, dt, posts):
-    """Integrate one ball; returns (impact_speed, goal_gap_center or None)."""
+def step_ball(ball, dt, posts, rot_deg):
+    """Integrate one ball; returns (impact_speed, goal_gap_center or None).
+
+    rot_deg is the arena's current rotation: gap positions and the wall's
+    surface velocity follow it.
+    """
     impact = 0.0
     goal = None
 
@@ -326,11 +349,11 @@ def step_ball(ball, dt, posts):
     dist = math.hypot(dx, dy) or 1e-9
 
     if dist + ball.r > ARENA_RADIUS:
-        deg = math.degrees(math.atan2(dy, dx))
-        if ball.is_football and in_any_gap(deg):
+        deg_rel = math.degrees(math.atan2(dy, dx)) - rot_deg  # angle in arena frame
+        if ball.is_football and in_any_gap(deg_rel):
             # football flies into the net -> goal once fully across the line
             if dist > ARENA_RADIUS + ball.r * 0.6:
-                goal = RIGHT_GAP_CENTER if in_gap(deg, RIGHT_GAP_CENTER) else LEFT_GAP_CENTER
+                goal = RIGHT_GAP_CENTER if in_gap(deg_rel, RIGHT_GAP_CENTER) else LEFT_GAP_CENTER
         else:
             # bounce off the wall (player balls also bounce inside the gaps: net)
             nx, ny = dx / dist, dy / dist
@@ -341,6 +364,13 @@ def step_ball(ball, dt, posts):
                 ball.vel[1] -= 2 * vn * ny
                 ball.vel[0] *= WALL_DAMPING
                 ball.vel[1] *= WALL_DAMPING
+            # the spinning wall drags the ball a little along its surface
+            tx, ty = -ny, nx
+            wall_t = math.radians(SPIN_SPEED_DEG) * ARENA_RADIUS
+            ball_t = ball.vel[0] * tx + ball.vel[1] * ty
+            drag = WALL_SPIN_FRICTION * (wall_t - ball_t)
+            ball.vel[0] += drag * tx
+            ball.vel[1] += drag * ty
             k = ARENA_RADIUS - ball.r
             ball.pos[0] = ARENA_CENTER[0] + nx * k
             ball.pos[1] = ARENA_CENTER[1] + ny * k
@@ -593,8 +623,7 @@ def main():
     }
 
     background = make_background()
-    posts = [polar(ARENA_CENTER, ARENA_RADIUS, gc + e)
-             for gc in (LEFT_GAP_CENTER, RIGHT_GAP_CENTER) for e in (-GAP_HALF, GAP_HALF)]
+    ring = make_arena_ring()
 
     football = Ball(ARENA_CENTER, random_velocity(FOOTBALL_SPAWN_SPEED),
                     FOOTBALL_RADIUS, make_football_texture(FOOTBALL_RADIUS),
@@ -635,12 +664,15 @@ def main():
     print(f"Rendering {VIDEO_SECONDS}s @ {FPS}fps -> {OUTPUT_FILE}")
     for f in range(total_match_frames):
         t = f / FPS
+        rot = (SPIN_SPEED_DEG * t) % 360.0
+        posts = [polar(ARENA_CENTER, ARENA_RADIUS, gc + e + rot)
+                 for gc in (LEFT_GAP_CENTER, RIGHT_GAP_CENTER) for e in (-GAP_HALF, GAP_HALF)]
 
         # ----- physics -----
         for _ in range(PHYSICS_SUBSTEPS):
             active = [b for b in balls if not (b.is_football and goal_timer > 0)]
             for ball in active:
-                impact, goal = step_ball(ball, dt, posts)
+                impact, goal = step_ball(ball, dt, posts, rot)
                 if impact > SOUND_IMPACT_MIN:
                     add_sound(t, "bounce", impact)
                 if impact > SHAKE_HIT_THRESHOLD:
@@ -682,7 +714,7 @@ def main():
                 ball.push_trail()
 
         # ----- render -----
-        canvas.blit(background, (0, 0))
+        draw_arena(canvas, background, ring, rot)
         draw_trails(canvas, [b for b in balls if not (b.is_football and goal_timer > 0)])
         for ball in balls:
             if ball.is_football and goal_timer > 0:
@@ -707,7 +739,7 @@ def main():
                   f"(ENGLAND {score_e} - {score_a} ARGENTINA)")
 
     # ----- frozen final-score card -----
-    canvas.blit(background, (0, 0))
+    draw_arena(canvas, background, ring, (SPIN_SPEED_DEG * MATCH_SECONDS) % 360.0)
     draw_trails(canvas, balls)
     for ball in balls:
         ball.draw(canvas)
