@@ -5,7 +5,9 @@ Generates a vertical (1080x1920) 60fps MP4 of a physics-based football match
 inside a circular arena, designed for YouTube Shorts / TikTok.
 
 Everything is drawn procedurally with pygame (no image assets) and frames are
-piped straight into ffmpeg via imageio-ffmpeg.
+piped straight into ffmpeg via imageio-ffmpeg. The soundtrack (crowd ambience,
+bounce thumps, referee whistles, goal cheers) is synthesized procedurally with
+numpy from simulation events and muxed into the final MP4 — no audio assets.
 
 Usage:  python3 football_match.py     ->  writes match.mp4
 """
@@ -13,9 +15,12 @@ Usage:  python3 football_match.py     ->  writes match.mp4
 import math
 import os
 import random
+import subprocess
+import wave
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")  # headless rendering
 
+import numpy as np
 import pygame
 import imageio_ffmpeg
 
@@ -51,6 +56,16 @@ PLAYER_RADIUS = 40
 
 TRAIL_LENGTH = 18           # positions kept per ball trail
 TRAIL_ALPHA = 90            # max trail opacity
+
+# Audio (all synthesized, no assets)
+SAMPLE_RATE = 44100
+CROWD_VOL = 0.16            # constant crowd ambience level
+BOUNCE_VOL = 0.55           # wall/post bounce thump level
+KICK_VOL = 0.50             # ball-ball kick level
+CHEER_VOL = 0.90            # goal cheer level
+WHISTLE_VOL = 0.40          # referee whistle level
+SOUND_IMPACT_MIN = 220.0    # impacts quieter than this are inaudible
+SOUND_MIN_GAP = 0.05        # per-sound-type rate limit (seconds)
 
 GOAL_CELEBRATION_SECONDS = 1.0
 SHAKE_GOAL = 20.0           # screen-shake strength on a goal
@@ -384,6 +399,109 @@ def collide_pair(a, b):
 
 
 # ----------------------------------------------------------------------------
+# Procedural audio: every sound is synthesized from the event log
+# ----------------------------------------------------------------------------
+def _mix_at(buf, start_s, w):
+    i = int(start_s * SAMPLE_RATE)
+    if i < 0 or i >= len(buf):
+        return
+    j = min(len(buf), i + len(w))
+    buf[i:j] += w[:j - i]
+
+
+def _fft_shaped_noise(n, gain_fn, rng):
+    """White noise spectrally shaped by gain_fn(freqs) via FFT filtering."""
+    noise = rng.standard_normal(n)
+    spec = np.fft.rfft(noise)
+    freqs = np.fft.rfftfreq(n, 1.0 / SAMPLE_RATE)
+    freqs[0] = 1.0
+    w = np.fft.irfft(spec * gain_fn(freqs), n)
+    return w / (np.max(np.abs(w)) + 1e-9)
+
+
+def _synth_thump(freq, decay, dur, vol):
+    """Low percussive hit: pitch-dropping sine + a tiny noise click."""
+    t = np.arange(int(dur * SAMPLE_RATE)) / SAMPLE_RATE
+    w = np.sin(2 * np.pi * freq * t * (1.0 - 0.25 * t / dur)) * np.exp(-t * decay)
+    click = np.random.default_rng(3).standard_normal(len(t)) * np.exp(-t * 220) * 0.4
+    return (w + click) * vol
+
+
+def _synth_whistle(blasts, vol):
+    """Referee whistle: 2.4kHz tone with fast vibrato; blasts = [(offset, dur)]."""
+    total = max(o + d for o, d in blasts) + 0.05
+    out = np.zeros(int(total * SAMPLE_RATE))
+    for offset, dur in blasts:
+        t = np.arange(int(dur * SAMPLE_RATE)) / SAMPLE_RATE
+        tone = np.sin(2 * np.pi * 2400 * t + 3.0 * np.sin(2 * np.pi * 24 * t))
+        env = np.minimum(t / 0.015, 1.0) * np.minimum((dur - t) / 0.05, 1.0).clip(0, 1)
+        _mix_at(out, offset, tone * env)
+    return out * vol
+
+
+def _synth_cheer(dur, vol, seed):
+    """Crowd roar: band-shaped noise swelling fast and decaying slowly."""
+    n = int(dur * SAMPLE_RATE)
+    rng = np.random.default_rng(seed)
+    roar = _fft_shaped_noise(n, lambda f: np.exp(-0.5 * (np.log(f / 700.0) / 0.9) ** 2), rng)
+    t = np.arange(n) / SAMPLE_RATE
+    env = np.clip(t / 0.18, 0, 1) ** 1.5 * np.exp(-np.maximum(0.0, t - 0.5) * 1.3)
+    return roar * env * vol
+
+
+def build_soundtrack(events, total_seconds):
+    """Mix the event log into a mono float track for the whole video."""
+    n = int(total_seconds * SAMPLE_RATE)
+    buf = np.zeros(n)
+
+    # constant stadium ambience: low-passed noise, slowly breathing
+    rng = np.random.default_rng(1)
+    crowd = _fft_shaped_noise(n, lambda f: 1.0 / (1.0 + (f / 450.0) ** 2), rng)
+    crowd /= np.std(crowd) + 1e-9
+    t = np.arange(n) / SAMPLE_RATE
+    swell = 1.0 + 0.22 * np.sin(2 * np.pi * 0.11 * t) + 0.13 * np.sin(2 * np.pi * 0.043 * t + 1.7)
+    buf += crowd * swell * CROWD_VOL * 0.3
+
+    for when, kind, intensity in events:
+        if kind == "bounce":
+            v = BOUNCE_VOL * (0.25 + 0.75 * min(1.0, intensity / 1300.0))
+            _mix_at(buf, when, _synth_thump(140, 34, 0.14, v))
+        elif kind == "kick":
+            v = KICK_VOL * (0.25 + 0.75 * min(1.0, intensity / 1300.0))
+            _mix_at(buf, when, _synth_thump(210, 48, 0.09, v))
+        elif kind == "whistle":
+            _mix_at(buf, when, _synth_whistle([(0.0, 0.35)], WHISTLE_VOL))
+        elif kind == "whistle_full_time":
+            _mix_at(buf, when, _synth_whistle(
+                [(0.0, 0.25), (0.4, 0.25), (0.8, 0.8)], WHISTLE_VOL))
+        elif kind == "cheer":
+            _mix_at(buf, when, _synth_cheer(2.8, CHEER_VOL, int(when * 1000) & 0xFFFF))
+
+    peak = np.max(np.abs(buf))
+    if peak > 0.85:
+        buf *= 0.85 / peak
+    return buf
+
+
+def write_wav(path, track):
+    data = (track * 32767).astype(np.int16)
+    stereo = np.repeat(data[:, None], 2, axis=1)
+    with wave.open(path, "wb") as f:
+        f.setnchannels(2)
+        f.setsampwidth(2)
+        f.setframerate(SAMPLE_RATE)
+        f.writeframes(stereo.tobytes())
+
+
+def mux_audio(video_path, wav_path, out_path):
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    subprocess.run(
+        [ffmpeg, "-y", "-i", video_path, "-i", wav_path,
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-shortest", out_path],
+        check=True, capture_output=True)
+
+
+# ----------------------------------------------------------------------------
 # HUD / overlays
 # ----------------------------------------------------------------------------
 def draw_hud(canvas, fonts, score_e, score_a, t):
@@ -494,9 +612,20 @@ def main():
     goal_team_color = COL_WHITE
     shake = 0.0
 
+    sound_events = []           # (time, kind, intensity)
+    last_sound_time = {}
+
+    def add_sound(when, kind, intensity=1.0):
+        if when - last_sound_time.get(kind, -1.0) >= SOUND_MIN_GAP:
+            last_sound_time[kind] = when
+            sound_events.append((when, kind, intensity))
+
+    tmp_video = OUTPUT_FILE + ".video.tmp.mp4"
+    tmp_wav = OUTPUT_FILE + ".audio.tmp.wav"
     writer = imageio_ffmpeg.write_frames(
-        OUTPUT_FILE, size=(WIDTH, HEIGHT), fps=FPS, quality=8, macro_block_size=1)
+        tmp_video, size=(WIDTH, HEIGHT), fps=FPS, quality=8, macro_block_size=1)
     writer.send(None)
+    add_sound(0.15, "whistle")  # kickoff
 
     frame = pygame.Surface((WIDTH, HEIGHT))
     canvas = pygame.Surface((WIDTH, HEIGHT))
@@ -512,6 +641,8 @@ def main():
             active = [b for b in balls if not (b.is_football and goal_timer > 0)]
             for ball in active:
                 impact, goal = step_ball(ball, dt, posts)
+                if impact > SOUND_IMPACT_MIN:
+                    add_sound(t, "bounce", impact)
                 if impact > SHAKE_HIT_THRESHOLD:
                     shake = max(shake, min(14.0, (impact - SHAKE_HIT_THRESHOLD) / 70.0))
                 if goal is not None and goal_timer <= 0:
@@ -525,12 +656,15 @@ def main():
                         scorer = "ARGENTINA"
                     goal_timer = GOAL_CELEBRATION_SECONDS
                     shake = SHAKE_GOAL
-                    print(f"[SOUND] crowd-cheer placeholder")
+                    add_sound(t, "cheer")
+                    print(f"[SOUND] crowd cheer")
                     print(f"  {t:5.1f}s  GOAL! {scorer} scores "
                           f"-> ENGLAND {score_e} - {score_a} ARGENTINA")
             for i in range(len(active)):
                 for j in range(i + 1, len(active)):
                     impact = collide_pair(active[i], active[j])
+                    if impact > SOUND_IMPACT_MIN:
+                        add_sound(t, "kick", impact)
                     if impact > SHAKE_HIT_THRESHOLD:
                         shake = max(shake, min(14.0, (impact - SHAKE_HIT_THRESHOLD) / 70.0))
 
@@ -541,6 +675,7 @@ def main():
                 football.pos = list(ARENA_CENTER)
                 football.vel = random_velocity(FOOTBALL_SPAWN_SPEED)
                 football.trail.clear()
+                add_sound(t, "whistle")  # restart after the goal
 
         for ball in balls:
             if not (ball.is_football and goal_timer > 0):
@@ -584,6 +719,15 @@ def main():
 
     writer.close()
     pygame.quit()
+
+    # full-time whistle + crowd reaction, then mux the soundtrack into the video
+    sound_events.append((MATCH_SECONDS - 0.2, "whistle_full_time", 1.0))
+    sound_events.append((MATCH_SECONDS, "cheer", 1.0))
+    print(f"[AUDIO] synthesizing soundtrack ({len(sound_events)} events)...")
+    write_wav(tmp_wav, build_soundtrack(sound_events, VIDEO_SECONDS))
+    mux_audio(tmp_video, tmp_wav, OUTPUT_FILE)
+    os.remove(tmp_video)
+    os.remove(tmp_wav)
 
     if score_e > score_a:
         result = "ENGLAND WINS!"
