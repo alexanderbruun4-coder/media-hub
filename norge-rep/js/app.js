@@ -132,7 +132,6 @@
         <div class="boxes" aria-hidden="true">${[0, 1, 2].map(() => `<div class="cube">${"<i></i>".repeat(6)}</div>`).join("")}</div>
         <h2 class="title-m">${t("empty.title")}</h2>
         <p>${t("empty.text")}</p>
-        <a class="btn" href="#/request">${t("req.cta")} ${icon("arrow")}</a>
       </div>`;
   }
 
@@ -290,7 +289,7 @@
           <p class="lead hero-in" style="--d:5">${t("hero.text")}</p>
           <div class="hero-actions hero-in" style="--d:6">
             <a class="btn" href="#/shop">${t("hero.cta")} ${icon("arrow")}</a>
-            <a class="btn btn-ghost" href="#/request">${t("hero.cta2")}</a>
+            <a class="btn btn-ghost" href="#/new">${t("nav.new")}</a>
           </div>
         </div>
         <div class="hero-badge" aria-hidden="true">
@@ -360,21 +359,7 @@
         </div>
       </section>` : ""}
 
-      ${reviewsHtml()}
-
-      <section class="section" style="padding-top:${vault.length >= 5 ? "40px" : "0"}">
-        <div class="wrap">
-          <div class="cta-band reveal">
-            <div>
-              <p class="eyebrow">${t("req.eyebrow")}</p>
-              <h2 class="title-l">${t("req.title")}</h2>
-              <p>${t("req.text")}</p>
-              <div style="margin-top:32px"><a class="btn" href="#/request">${t("req.cta")} ${icon("arrow")}</a></div>
-            </div>
-            <div class="cta-side"><div class="orb" aria-hidden="true"></div></div>
-          </div>
-        </div>
-      </section>`,
+      ${reviewsHtml()}`,
     };
   }
 
@@ -664,7 +649,7 @@
       `${t("co.shipping")} (${shipMethod === "express" ? t("co.express") : t("co.standard")}): ${tt.shipping ? money(tt.shipping) : t("co.free")}`,
       `${t("co.total").toUpperCase()}: ${money(tt.total)}`,
       "",
-      `${t("rq.name")}: ${f.first} ${f.last}`,
+      `${t("ct.name")}: ${f.first} ${f.last}`,
       `${t("co.email")}: ${f.email}`,
       f.phone ? `${t("co.phone")}: ${f.phone}` : null,
       `${t("co.address")}: ${[f.address, `${f.zip} ${f.city}`, f.country].filter(Boolean).join(", ")}`,
@@ -709,41 +694,6 @@
   }
 
   /* ---------------- content pages ---------------- */
-  function pageRequest() {
-    const opt = `<span class="muted">${t("co.optional")}</span>`;
-    return {
-      title: `${t("rq.title")} | ${S.name}`,
-      html: `
-      <div class="wrap">
-        <div class="content-split">
-          <div>
-            <p class="eyebrow">${t("req.eyebrow")}</p>
-            <h1 class="title-l" style="margin:18px 0 22px">${t("rq.title")}</h1>
-            <p class="lead">${t("rq.lead")}</p>
-            <div class="steps">
-              <div class="step"><b><span>01</span></b>${t("rq.s1")}<br /><small>${t("rq.s1d")}</small></div>
-              <div class="step"><b><span>02</span></b>${t("rq.s2")}<br /><small>${t("rq.s2d")}</small></div>
-              <div class="step"><b><span>03</span></b>${t("rq.s3")}<br /><small>${t("rq.s3d")}</small></div>
-            </div>
-          </div>
-          <form class="form glass-card" data-form="request">
-            <div class="form-row">
-              <div class="field"><label for="r-name">${t("rq.name")}</label><input class="input" id="r-name" name="name" required autocomplete="name" /></div>
-              <div class="field"><label for="r-email">${t("rq.email")}</label><input class="input" id="r-email" name="email" type="email" required autocomplete="email" /></div>
-            </div>
-            <div class="field"><label for="r-item">${t("rq.item")}</label><input class="input" id="r-item" name="item" required placeholder="${t("rq.itemPh")}" /></div>
-            <div class="field"><label for="r-link">${t("rq.link")} ${opt}</label><input class="input" id="r-link" name="link" placeholder="https://…" /></div>
-            <div class="form-row">
-              <div class="field"><label for="r-size">${t("rq.size")} ${opt}</label><input class="input" id="r-size" name="size" /></div>
-              <div class="field"><label for="r-budget">${t("rq.budget")} ${opt}</label><input class="input" id="r-budget" name="budget" placeholder="${LANG === "no" ? "f.eks. 500 kr" : "e.g. NOK 500"}" /></div>
-            </div>
-            <div class="field"><label for="r-more">${t("rq.more")} ${opt}</label><textarea class="input" id="r-more" name="more" rows="4"></textarea></div>
-            <button class="btn btn-block" type="submit">${t("rq.send")} ${icon("arrow")}</button>
-          </form>
-        </div>
-      </div>`,
-    };
-  }
   function pageAbout() {
     return {
       title: `${t("about.title", { name: S.name })}`,
@@ -754,7 +704,7 @@
             <p class="eyebrow">${t("nav.about")}</p>
             <h1 class="title-l" style="margin:18px 0 28px">${esc(t("about.title", { name: S.name }))}</h1>
             <div class="prose"><p>${esc(t("about.text", { name: S.name }))}</p></div>
-            <div style="margin-top:30px;display:flex;gap:12px;flex-wrap:wrap"><a class="btn" href="#/shop">${t("hero.cta")} ${icon("arrow")}</a><a class="btn btn-ghost" href="#/request">${t("req.cta")}</a></div>
+            <div style="margin-top:30px;display:flex;gap:12px;flex-wrap:wrap"><a class="btn" href="#/shop">${t("hero.cta")} ${icon("arrow")}</a><a class="btn btn-ghost" href="#/contact">${t("nav.contact")}</a></div>
           </div>
           <div class="steps" style="grid-template-columns:1fr;margin:0">
             <div class="step feature" style="min-height:0"><b><span>${t("about.v1")}</span></b><small>${t("about.v1d")}</small></div>
@@ -830,14 +780,13 @@
   function renderChrome() {
     $("#logoText").textContent = S.name;
     $("#menuLogo").textContent = S.name;
-    $("#nav").innerHTML = [["#/", "nav.home"], ["#/shop", "nav.shop"], ["#/new", "nav.new"], ["#/request", "nav.request"], ["#/about", "nav.about"]]
+    $("#nav").innerHTML = [["#/", "nav.home"], ["#/shop", "nav.shop"], ["#/new", "nav.new"], ["#/about", "nav.about"]]
       .map(([h, k]) => `<a href="${h}">${t(k)}</a>`).join("");
     $("#menuLinks").innerHTML = `
       <a href="#/" data-close-layers>${t("nav.home")}</a>
       <a href="#/shop" data-close-layers>${t("nav.shop")}</a>
       ${CATS.map((c) => `<a class="menu-sub" href="#/shop/${slug(c)}" data-close-layers>${esc(catLabel(c))}</a>`).join("")}
       <a href="#/new" data-close-layers>${t("nav.new")}</a>
-      <a href="#/request" data-close-layers>${t("nav.request")}</a>
       <a href="#/saved" data-close-layers>${t("nav.saved")}</a>
       <a href="#/about" data-close-layers>${t("nav.about")}</a>
       <a class="menu-sub" href="#/faq" data-close-layers>${t("nav.faq")}</a>
@@ -853,7 +802,7 @@
             <p>${t("ft.tag")}</p>
             ${socials.length ? `<div class="socials">${socials.map(([l, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener" class="caps">${l}</a>`).join("")}</div>` : ""}
           </div>
-          <div><h4>${t("ft.shop")}</h4><ul><li><a href="#/shop">${t("ft.all")}</a></li><li><a href="#/new">${t("nav.new")}</a></li>${CATS.slice(0, 5).map((c) => `<li><a href="#/shop/${slug(c)}">${esc(catLabel(c))}</a></li>`).join("")}<li><a href="#/request">${t("nav.request")}</a></li><li><a href="#/review">${t("nav.review")}</a></li></ul></div>
+          <div><h4>${t("ft.shop")}</h4><ul><li><a href="#/shop">${t("ft.all")}</a></li><li><a href="#/new">${t("nav.new")}</a></li>${CATS.slice(0, 5).map((c) => `<li><a href="#/shop/${slug(c)}">${esc(catLabel(c))}</a></li>`).join("")}<li><a href="#/review">${t("nav.review")}</a></li></ul></div>
           <div><h4>${t("ft.help")}</h4><ul><li><a href="#/faq">${t("nav.faq")}</a></li><li><a href="#/policy/shipping">${t("pol.shipping")}</a></li><li><a href="#/policy/returns">${t("pol.returns")}</a></li><li><a href="#/contact">${t("nav.contact")}</a></li></ul></div>
           <div><h4>${t("ft.info")}</h4><ul><li><a href="#/about">${t("nav.about")}</a></li><li><a href="#/policy/privacy">${t("pol.privacy")}</a></li><li><a href="#/policy/terms">${t("pol.terms")}</a></li><li><a href="admin.html" class="admin-link">${t("nav.admin")}</a></li></ul></div>
         </div>
@@ -893,7 +842,6 @@
       case "saved": page = pageSaved(); break;
       case "checkout": page = pageCheckout(); break;
       case "order": page = pageOrder(b); break;
-      case "request": page = pageRequest(); break;
       case "review": page = pageReview(); break;
       case "about": page = pageAbout(); break;
       case "contact": page = pageContact(); break;
@@ -1003,13 +951,6 @@
       ss.set("code", ok ? ok.code : null);
       ss.set("codeMsg", ok ? { key: "co.codeOk", vars: { code: ok.code, p: ok.percent } } : { key: code ? "co.codeBad" : "co.codeEmpty" });
       return renderSummary();
-    }
-    if (kind === "request") {
-      mailto(t("rq.subject", { item: f.item }), [
-        `${t("rq.item")} ${f.item}`, f.link ? `${t("rq.link")}: ${f.link}` : null, f.size ? `${t("rq.size")}: ${f.size}` : null,
-        f.budget ? `${t("rq.budget")}: ${f.budget}` : null, f.more ? `\n${f.more}` : null, "", `${t("rq.name")}: ${f.name}`, `${t("rq.email")}: ${f.email}`,
-      ].filter((x) => x !== null).join("\n"));
-      return toast(t("rq.sent"));
     }
     if (kind === "review") {
       mailto(t("rw.subject", { stars: f.rating, name: f.name }), [
