@@ -194,3 +194,5 @@ textarea.input { height: auto; min-height: 96px; padding: 10px 12px; resize: ver
 .more summary::before { content: "+"; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); font-weight: 600; }
 .more[open] summary::before { content: "−"; }
 .more summary .muted { font-weight: 400; font-size: 13px; }
+
+.note-big { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; font-size: 14px; padding: 14px 16px; }
