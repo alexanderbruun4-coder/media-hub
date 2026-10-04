@@ -7,7 +7,7 @@ window.I18N = {
   no: {
     // meny
     "nav.home": "Hjem", "nav.shop": "Butikk", "nav.new": "Nyheter", "nav.request": "Ønsk en vare", "nav.about": "Om oss",
-    "nav.faq": "FAQ", "nav.contact": "Kontakt", "nav.saved": "Lagrede varer",
+    "nav.faq": "FAQ", "nav.contact": "Kontakt", "nav.saved": "Lagrede varer", "nav.review": "Skriv en anmeldelse",
     "a11y.menu": "Åpne meny", "a11y.search": "Søk", "a11y.saved": "Lagrede varer", "a11y.bag": "Handlekurv", "a11y.close": "Lukk",
     "a11y.lang": "Bytt språk",
 
@@ -28,6 +28,19 @@ window.I18N = {
     "req.eyebrow": "Selling whatever u want", "req.title": "Finner du ikke det du leter etter?",
     "req.text": "Si hva du vil ha, så prøver vi å skaffe det til deg. Billig, i god kvalitet og med kjapp levering.",
     "req.cta": "Ønsk en vare",
+
+    // kvalitet + anmeldelser
+    "q.eyebrow": "Kvalitetsløftet vårt", "q.title": "Beste kvaliteten. Til en pris som gir mening.",
+    "q.text": "Vi sjekker varene før de sendes, og vi står for det vi selger. Er du ikke fornøyd, har du 14 dagers angrerett.",
+    "q.seal1": "Kvalitet", "q.seal2": "Sjekket", "q.p1": "Sjekket før sending", "q.p2": "14 dagers angrerett", "q.p3": "Svar innen én dag",
+    "rv.eyebrow": "Anmeldelser", "rv.title": "Hva kundene sier", "rv.avg": "{avg} av 5 · {n} anmeldelser", "rv.avg1": "{avg} av 5 · 1 anmeldelse",
+    "rv.write": "Skriv en anmeldelse", "rv.cta": "Har du handlet hos oss? Vi vil gjerne høre hva du synes.",
+    "rv.verified": "Kunde",
+    "rw.title": "Skriv en anmeldelse", "rw.lead": "Takk for at du handlet hos oss! Fortell hva du synes om varen og leveringen. Anmeldelsen din kan bli vist på siden.",
+    "rw.name": "Navnet ditt", "rw.nameHint": "Fornavn er nok", "rw.rating": "Hvor fornøyd er du?", "rw.product": "Hva kjøpte du?", "rw.text": "Anmeldelsen din",
+    "rw.order": "Ordrenummer", "rw.consent": "Jeg godtar at anmeldelsen kan vises på nettsiden med fornavnet mitt.",
+    "rw.send": "Send anmeldelse", "rw.sent": "E-postappen din åpnet seg. Trykk send. Takk!", "rw.subject": "Ny anmeldelse: {stars} stjerner fra {name}",
+    "rw.star": "{n} av 5 stjerner",
 
     // tomt
     "empty.title": "Ingen produkter enda", "empty.text": "Nye varer kommer snart. Følg med!",
@@ -130,7 +143,7 @@ window.I18N = {
 
   en: {
     "nav.home": "Home", "nav.shop": "Shop", "nav.new": "New in", "nav.request": "Request an item", "nav.about": "About",
-    "nav.faq": "FAQ", "nav.contact": "Contact", "nav.saved": "Saved items",
+    "nav.faq": "FAQ", "nav.contact": "Contact", "nav.saved": "Saved items", "nav.review": "Write a review",
     "a11y.menu": "Open menu", "a11y.search": "Search", "a11y.saved": "Saved items", "a11y.bag": "Shopping bag", "a11y.close": "Close",
     "a11y.lang": "Change language",
 
@@ -150,6 +163,18 @@ window.I18N = {
     "req.eyebrow": "Selling whatever u want", "req.title": "Can't find what you're looking for?",
     "req.text": "Tell us what you want, and we'll try to get it for you. Cheap, good quality and shipped fast.",
     "req.cta": "Request an item",
+
+    "q.eyebrow": "Our quality promise", "q.title": "The best quality. At a price that makes sense.",
+    "q.text": "We check every item before it ships, and we stand behind what we sell. Not happy? You have a 14-day right of withdrawal.",
+    "q.seal1": "Quality", "q.seal2": "Checked", "q.p1": "Checked before shipping", "q.p2": "14-day returns", "q.p3": "Replies within a day",
+    "rv.eyebrow": "Reviews", "rv.title": "What customers say", "rv.avg": "{avg} out of 5 · {n} reviews", "rv.avg1": "{avg} out of 5 · 1 review",
+    "rv.write": "Write a review", "rv.cta": "Bought something from us? We'd love to hear what you think.",
+    "rv.verified": "Customer",
+    "rw.title": "Write a review", "rw.lead": "Thanks for shopping with us! Tell us what you think of the item and the delivery. Your review may be shown on the site.",
+    "rw.name": "Your name", "rw.nameHint": "First name is enough", "rw.rating": "How happy are you?", "rw.product": "What did you buy?", "rw.text": "Your review",
+    "rw.order": "Order number", "rw.consent": "I agree that my review can be shown on the website with my first name.",
+    "rw.send": "Send review", "rw.sent": "Your email app opened. Press send. Thank you!", "rw.subject": "New review: {stars} stars from {name}",
+    "rw.star": "{n} out of 5 stars",
 
     "empty.title": "No products yet", "empty.text": "New products are coming soon. Stay tuned!",
 

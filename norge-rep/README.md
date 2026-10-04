@@ -38,6 +38,10 @@ Butikken oppdateres omtrent ett minutt etter at du publiserer.
 - Produktsider med bilder, størrelser og lagerstatus
 - Handlekurv, lagrede varer, kasse med frakt og rabattkoder
 - Siden «Ønsk en vare», der kunder kan be deg skaffe noe
+- «Beste kvaliteten»-løfte på forsiden med en 3D-mynt som snurrer
+- Anmeldelser: kundene skriver anmeldelse på siden «Skriv en anmeldelse», den kommer
+  til deg på e-post, og du legger den inn under **Anmeldelser** i admin. Da vises den
+  på forsiden med stjerner og snittkarakter.
 - Om oss, Kontakt, FAQ, Frakt, Retur, Personvern og Kjøpsvilkår
 
 All tekst på siden står i `js/i18n.js` hvis du vil endre den.
@@ -59,5 +63,7 @@ det til kunden etter bestillingen.
 - **Ikke selg kopier av merkevarer.** Falske varer, ofte kalt «reps», som bruker
   logoen eller navnet til ekte merker er ulovlige i Norge. Tollen kan beslaglegge dem,
   og du kan få bot. Selg egne varer, varer uten merke eller ekte varer.
+- **Bare ekte anmeldelser.** Legg aldri inn anmeldelser du har skrevet selv eller
+  funnet på. Falske anmeldelser er ulovlige etter markedsføringsloven.
 - **Angrerett:** Kunder i Norge har 14 dagers angrerett når de handler på nett.
   Det står allerede i vilkårene.
