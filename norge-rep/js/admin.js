@@ -84,7 +84,7 @@
       let msg = "";
       try { msg = (await res.json()).message || ""; } catch {}
       if (res.status === 401) throw new Error("GitHub godtok ikke nøkkelen din. Sjekk at du kopierte hele, og at den ikke har gått ut.");
-      if (res.status === 403) throw new Error("Nøkkelen din mangler tilgang. Den må ha «Contents: Read and write» for dette repoet.");
+      if (res.status === 403) { const err = new Error("Nøkkelen din har bare lov til å lese, ikke å lagre."); err.perm = true; throw err; }
       if (res.status === 404) throw new Error("Fant ikke repoet eller filen. Sjekk navnet på repoet, og at nøkkelen har tilgang til det.");
       throw new Error(`GitHub-feil ${res.status}: ${msg}`);
     }
@@ -556,7 +556,17 @@
         <div class="actions"><button class="btn" data-act="closeModal">Ferdig</button><a class="btn btn-dark" href="./" target="_blank" rel="noopener">Se butikken</a></div>`);
       renderView();
     } catch (e) {
-      modal(`<h2>Klarte ikke å publisere</h2><div class="err">${esc(e.message)}</div><p class="muted small">Endringene dine er fortsatt lagret her. Ingenting er borte.</p>
+      const fix = e.perm ? `
+        <p style="margin:14px 0 8px"><b>Slik fikser du det (under ett minutt):</b></p>
+        <ol class="steps" style="margin:0 0 12px">
+          <li>Trykk på knappen under for å åpne nøklene dine på GitHub.</li>
+          <li>Trykk på nøkkelen du lagde, og så <b>Edit</b>.</li>
+          <li>Under <b>Repository access</b>: velg <b>Only select repositories</b> og velg <b>${esc(cfg.repo.split("/")[1] || cfg.repo)}</b>.</li>
+          <li>Under <b>Permissions</b> → <b>Repository permissions</b>: sett <b>Contents</b> til <b>Read and write</b>.</li>
+          <li>Trykk <b>Update</b>, kom tilbake hit og trykk <b>Prøv igjen</b>. Du trenger ikke lime inn nøkkelen på nytt.</li>
+        </ol>
+        <a class="btn" style="width:100%;margin-bottom:6px" href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">Åpne nøklene mine på GitHub</a>` : "";
+      modal(`<h2>Klarte ikke å publisere</h2><div class="err">${esc(e.message)}</div>${fix}<p class="muted small">Endringene dine er fortsatt lagret her. Ingenting er borte.</p>
         <div class="actions"><button class="btn" data-act="closeModal">Lukk</button><button class="btn btn-dark" data-act="publish">Prøv igjen</button></div>`);
     }
   }
