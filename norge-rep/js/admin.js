@@ -222,7 +222,7 @@
     data = clone(remoteJson);
     pending = {};
     if (work && work.data && (JSON.stringify(work.data) !== work.baseJSON || Object.keys(work.pending || {}).length)) {
-      const same = work.baseSha === sha || mode === "local";
+      const same = work.baseSha === sha || mode === "local" || !work.baseSha;
       if (same || confirm("Du har endringer som ikke er publisert, men butikken har blitt oppdatert siden.\n\nTrykk OK for å fortsette med endringene dine, eller Avbryt for å starte på nytt fra butikken slik den er nå.")) {
         data = work.data;
         pending = work.pending || {};
@@ -285,7 +285,8 @@
     const list = data.products.map((p, i) => ({ p, i })).filter(({ p }) => !q || [p.name, p.nameEn, p.brand, catLabel(p.category)].join(" ").toLowerCase().includes(q));
     const status = (p) => p.hidden ? `<span class="badge hidden">Skjult</span>` : Number(p.stock) <= 0 ? `<span class="badge sold">Utsolgt</span>` : p.stock === undefined || p.stock === "" ? `<span class="badge">Ute</span>` : `<span class="badge">Ute · ${Number(p.stock)} på lager</span>`;
     return `
-      ${mode === "local" ? `<div class="note">Du er ikke koblet til, så endringene blir bare i denne nettleseren. Bruk <b>Forhåndsvis</b> for å se dem, eller koble til GitHub for å publisere.</div>` : ""}
+      ${mode === "local" ? `<div class="note note-big"><span><b>Du er ikke koblet til.</b> Produkter du legger til nå vises ikke på nettsiden før du kobler til GitHub.</span><button class="btn btn-dark btn-sm" data-act="toConnect">Koble til</button></div>` : ""}
+      ${mode === "github" && isDirty() ? `<div class="note note-big"><span><b>Noe er ikke lagt ut enda.</b> Trykk Publiser for å vise endringene på nettsiden.</span><button class="btn btn-dark btn-sm" data-act="publish">Publiser nå</button></div>` : ""}
       <div class="page-title">
         <div><h1>Produkter</h1><p class="muted" style="margin:4px 0 0">${data.products.length ? `${data.products.length} produkter i butikken` : "Ingen produkter enda"}</p></div>
         <button class="btn btn-dark" data-act="newProduct">${ic.plus} Legg til produkt</button>
@@ -409,16 +410,25 @@
       while (data.products.some((x) => x.id === id)) id = `${slug(p.name) || "produkt"}-${n++}`;
       p.id = id;
       data.products.unshift(p);
-      toast("Produktet er lagt til. Trykk Publiser for å legge det ut.");
+
     } else {
       data.products[data.products.findIndex((x) => x.id === p.id)] = p;
-      toast("Produktet er lagret. Trykk Publiser for å legge det ut.");
+
     }
     editing = null;
     dropUnusedPending();
     view = "products";
     saveWork();
     renderView();
+    afterProductChange();
+  }
+  // Legg ut endringer med en gang, så ingenting blir liggende bare i nettleseren.
+  function afterProductChange() {
+    if (mode === "github") return publish(false);
+    modal(`<h2>Ikke lagt ut enda</h2>
+      <p class="muted">Du er ikke koblet til GitHub, så produktet er bare lagret i denne nettleseren og vises <b>ikke</b> på nettsiden.</p>
+      <p class="muted">Koble til én gang, så legges produktet ut med en gang. Produktet ditt blir ikke borte.</p>
+      <div class="actions"><button class="btn" data-act="closeModal">Senere</button><button class="btn btn-dark" data-act="toConnect">Koble til GitHub</button></div>`);
   }
   function dropUnusedPending() {
     const used = referencedImages(data);
@@ -633,13 +643,13 @@
       if (!confirm(`Slette «${p.name}»? Du kan angre med Forkast helt til du publiserer.`)) return;
       data.products.splice(Number(el.dataset.del), 1);
       dropUnusedPending(); saveWork(); renderView();
-      return toast("Produktet er slettet. Trykk Publiser for å oppdatere butikken.");
+      return afterProductChange();
     }
     if (act === "deleteEditing") {
       if (!confirm(`Slette «${editing.name}»?`)) return;
       data.products = data.products.filter((x) => x.id !== editing.id);
       editing = null; view = "products"; dropUnusedPending(); saveWork(); renderView();
-      return toast("Produktet er slettet. Trykk Publiser for å oppdatere butikken.");
+      return afterProductChange();
     }
     if (act === "cancelEdit") { editing = null; view = "products"; dropUnusedPending(); saveWork(); return renderView(); }
     if (el.dataset.imgDel !== undefined) { editing.images.splice(Number(el.dataset.imgDel), 1); return refreshPhotos(); }
@@ -672,7 +682,7 @@
       if (isDirty() && !confirm("Du har endringer som ikke er publisert. De blir lagret i denne nettleseren. Koble fra likevel?")) return;
       localStorage.removeItem(CFG_KEY); cfg = { ...cfg, token: "" }; return renderConnect();
     }
-    if (act === "toConnect") return renderConnect();
+    if (act === "toConnect") { closeModal(); return renderConnect(); }
   });
 
   // Bilder som nettopp er publisert ligger kanskje ikke ute enda. Hent dem rett fra GitHub.
