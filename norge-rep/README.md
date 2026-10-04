@@ -22,10 +22,12 @@ GitHub og lag en ny.
 ## Legge til et produkt
 
 1. Trykk **Legg til produkt**.
-2. Legg til bilder. Det første bildet blir forsidebildet.
-3. Skriv navn, pris, hvor mange du har og eventuelt størrelser.
-4. Skriv gjerne navn og beskrivelse på engelsk også. Den vises når noen bytter til EN.
-5. Trykk **Legg til produkt**, og så **Publiser** øverst.
+2. Legg til **bilde**, skriv **navn** og **merke**.
+3. Trykk **Legg til produkt**, og så **Publiser** øverst.
+
+Det er alt. Under **Flere valg** kan du legge til pris, størrelser, kategori,
+beskrivelse og engelsk tekst hvis du vil. Uten pris viser butikken «Spør om pris»,
+og kunden kan sende deg et spørsmål på e-post.
 
 Butikken oppdateres omtrent ett minutt etter at du publiserer.
 
