@@ -219,6 +219,7 @@ main:focus { outline: none; }
 .card-name { font-family: var(--sans); font-size: 15px; font-weight: 500; letter-spacing: 0; line-height: 1.35; margin-bottom: 6px; }
 .price { font-size: 15px; font-weight: 600; }
 .price s { color: var(--muted); font-weight: 400; margin-left: 8px; }
+.price .ask, .pd-price .ask { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 /* 3D tilt + glare */
 .card-media, .feature { transition: transform .7s var(--ease), box-shadow .7s var(--ease); will-change: transform; }

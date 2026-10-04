@@ -84,7 +84,9 @@
   const find = (id) => PRODUCTS.find((p) => p.id === id);
   const imgs = (p) => (p.images || []).map(safeUrl).filter(Boolean);
   const isSold = (p) => Number(p.stock) <= 0;
-  const onSale = (p) => Number(p.compareAt) > Number(p.price);
+  const hasPrice = (p) => p.price !== undefined && p.price !== null && p.price !== "" && !isNaN(Number(p.price));
+  const onSale = (p) => hasPrice(p) && Number(p.compareAt) > Number(p.price);
+  const priceText = (p) => (hasPrice(p) ? money(p.price) : t("price.ask"));
   const isNew = (p) => p.addedAt && Date.now() - new Date(p.addedAt).getTime() < 21 * 864e5;
   const sizesOf = (p) => (p.sizes && p.sizes.length ? p.sizes : []);
   const byNewest = (a, b) => String(b.addedAt || "").localeCompare(String(a.addedAt || ""));
@@ -93,7 +95,7 @@
   const catLabel = (c) => (I18N[LANG].cat || {})[c] || c;
   const sizeLabel = (s) => (/^(one size|én størrelse|en størrelse)$/i.test(s) ? t("pd.oneSize") : s);
 
-  function priceHtml(p) { return `${money(p.price)}${onSale(p) ? `<s>${money(p.compareAt)}</s>` : ""}`; }
+  function priceHtml(p) { return hasPrice(p) ? `${money(p.price)}${onSale(p) ? `<s>${money(p.compareAt)}</s>` : ""}` : `<span class="ask">${t("price.ask")}</span>`; }
   function tagHtml(p) {
     if (isSold(p)) return `<span class="tag">${t("tag.sold")}</span>`;
     if (onSale(p)) return `<span class="tag tag-sale">${t("tag.sale")}</span>`;
@@ -148,13 +150,13 @@
 
   /* ---------------- bag ---------------- */
   let bag = [];
-  const bagLines = () => bag.map((l) => ({ ...l, p: find(l.id) })).filter((l) => l.p && !isSold(l.p));
+  const bagLines = () => bag.map((l) => ({ ...l, p: find(l.id) })).filter((l) => l.p && !isSold(l.p) && hasPrice(l.p));
   const qtyOf = (id) => bag.filter((l) => l.id === id).reduce((s, l) => s + l.qty, 0);
   function saveBag() { ls.set("bag", bag); renderCounts(); renderBag(); }
 
   function addToBag(id, size) {
     const p = find(id);
-    if (!p || isSold(p)) return;
+    if (!p || isSold(p) || !hasPrice(p)) return;
     if (qtyOf(id) >= Number(p.stock)) return toast(t("pd.only", { n: p.stock }));
     const line = bag.find((l) => l.id === id && l.size === size);
     if (line) line.qty++; else bag.push({ id, size, qty: 1 });
@@ -347,7 +349,7 @@
           <div class="ring">${vault.map((p) => `
             <a class="ring-card" href="#/product/${enc(p.id)}" draggable="false">
               <div class="ring-img"><img src="${esc(imgs(p)[0])}" alt="${esc(pName(p))}" loading="lazy" draggable="false" /></div>
-              <div class="ring-info"><span>${esc(pName(p))}</span><span>${money(p.price)}</span></div>
+              <div class="ring-info"><span>${esc(pName(p))}</span><span>${priceText(p)}</span></div>
             </a>`).join("")}
           </div>
           <div class="ring-floor"></div>
@@ -453,8 +455,8 @@
     const sorters = {
       featured: (a, b) => (isSold(a) - isSold(b)) || (!!b.featured - !!a.featured) || byNewest(a, b),
       newest: byNewest,
-      "price-asc": (a, b) => a.price - b.price,
-      "price-desc": (a, b) => b.price - a.price,
+      "price-asc": (a, b) => (hasPrice(a) ? a.price : Infinity) - (hasPrice(b) ? b.price : Infinity),
+      "price-desc": (a, b) => (hasPrice(b) ? b.price : -1) - (hasPrice(a) ? a.price : -1),
     };
     list = [...list].sort(sorters[sort] || sorters.featured);
     const sizes = [...new Set(base.flatMap(sizesOf))].filter((s) => !/^one size$/i.test(s));
@@ -475,7 +477,7 @@
         </div>
         ${PRODUCTS.length ? `
         <div class="toolbar">
-          <div class="chips">
+          <div class="chips"${CATS.length < 2 && !search && mode !== "new" ? " hidden" : ""}>
             ${search || mode === "new" ? `<a class="chip" href="#/shop">${t("shop.allShop")}</a>` : `<a class="chip${!cat ? " on" : ""}" href="#/shop${keep()}">${t("shop.all")}</a>${CATS.map((c) => `<a class="chip${c === cat ? " on" : ""}" href="#/shop/${slug(c)}${keep()}">${esc(catLabel(c))}</a>`).join("")}`}
           </div>
           <div class="selects">
@@ -522,7 +524,7 @@
           <div class="pd-info">
             <p class="eyebrow">${esc(p.brand || catLabel(p.category))}</p>
             <h1>${esc(pName(p))}</h1>
-            <div class="pd-price">${money(p.price)}${onSale(p) ? `<s>${money(p.compareAt)}</s><span class="save">${t("pd.save", { x: money(p.compareAt - p.price) })}</span>` : ""}</div>
+            <div class="pd-price">${priceText(p)}${onSale(p) ? `<s>${money(p.compareAt)}</s><span class="save">${t("pd.save", { x: money(p.compareAt - p.price) })}</span>` : ""}</div>
             ${sizes.length > 1 ? `
               <div class="opt-head"><span class="field-label">${t("pd.size")}</span></div>
               <div class="sizes">${sizes.map((s) => `<button class="size" data-size="${esc(s)}" aria-pressed="false" ${sold ? "disabled" : ""}>${esc(sizeLabel(s))}</button>`).join("")}</div>
@@ -530,7 +532,9 @@
             <div class="err" id="sizeErr" role="alert"></div>
             ${!sold && Number(p.stock) <= 3 ? `<div class="stock-note">${Number(p.stock) === 1 ? t("pd.left1") : t("pd.leftN", { n: Number(p.stock) })}</div>` : ""}
             <div class="pd-actions">
-              <button class="btn" id="addBtn" ${sold ? "disabled" : ""}>${sold ? t("pd.sold") : `${t("pd.add")} · ${money(p.price)}`}</button>
+              ${hasPrice(p) || sold
+                ? `<button class="btn" id="addBtn" ${sold ? "disabled" : ""}>${sold ? t("pd.sold") : `${t("pd.add")} · ${money(p.price)}`}</button>`
+                : `<button class="btn" id="askBtn">${t("pd.ask")} ${icon("arrow")}</button>`}
               <button class="pd-save${sv ? " on" : ""}" data-save="${esc(p.id)}" aria-pressed="${sv}" aria-label="${t("save")}">${icon("heart")}</button>
             </div>
             ${!sold && safeUrl(p.buyLink) ? `<a class="btn btn-ghost btn-block" href="${esc(safeUrl(p.buyLink))}" target="_blank" rel="noopener" style="margin-bottom:8px">${t("pd.buy")}</a>` : ""}
@@ -945,6 +949,13 @@
       $$(".size").forEach((b) => { b.classList.toggle("on", b === el); b.setAttribute("aria-pressed", b === el); });
       $("#sizeErr").textContent = "";
       return;
+    }
+    if (el.id === "askBtn") {
+      const p = find(pd.id);
+      if (!p) return;
+      const name = pName(p) + (p.brand ? ` (${p.brand})` : "");
+      mailto(t("pd.askSubject", { name }), `${t("pd.askBody", { name })}${pd.size ? `\n${t("pd.sizeOne")}: ${pd.size}` : ""}\n\n${location.href}`);
+      return toast(t("pd.askSent"));
     }
     if (el.id === "addBtn") {
       if (pd.size === null) { $("#sizeErr").textContent = t("pd.sizeErr"); return; }

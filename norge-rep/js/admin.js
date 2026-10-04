@@ -283,7 +283,7 @@
   function viewProducts() {
     const q = filter.toLowerCase();
     const list = data.products.map((p, i) => ({ p, i })).filter(({ p }) => !q || [p.name, p.nameEn, p.brand, catLabel(p.category)].join(" ").toLowerCase().includes(q));
-    const status = (p) => p.hidden ? `<span class="badge hidden">Skjult</span>` : Number(p.stock) <= 0 ? `<span class="badge sold">Utsolgt</span>` : `<span class="badge">Ute · ${Number(p.stock)} på lager</span>`;
+    const status = (p) => p.hidden ? `<span class="badge hidden">Skjult</span>` : Number(p.stock) <= 0 ? `<span class="badge sold">Utsolgt</span>` : p.stock === undefined || p.stock === "" ? `<span class="badge">Ute</span>` : `<span class="badge">Ute · ${Number(p.stock)} på lager</span>`;
     return `
       ${mode === "local" ? `<div class="note">Du er ikke koblet til, så endringene blir bare i denne nettleseren. Bruk <b>Forhåndsvis</b> for å se dem, eller koble til GitHub for å publisere.</div>` : ""}
       <div class="page-title">
@@ -298,7 +298,7 @@
             <div class="pthumb">${p.images && p.images[0] ? `<img src="${esc(imgSrc(p.images[0]))}" alt="" />` : "Ingen bilde"}</div>
             <div class="pname">${esc(p.name)}${p.featured ? `<span class="badge feat">Utvalgt</span>` : ""}<small>${esc([p.brand, (p.sizes || []).join(", ")].filter(Boolean).join(" · "))}</small></div>
             <div class="c-cat">${esc(catLabel(p.category))}</div>
-            <div class="c-price">${money(p.price)}</div>
+            <div class="c-price">${p.price === undefined || p.price === "" ? "Spør om pris" : money(p.price)}</div>
             <div>${status(p)}</div>
             <div class="row-actions">
               <button class="btn btn-sm" data-edit="${i}">Endre</button>
@@ -311,86 +311,72 @@
 
   /* ---------------- produkt-editor ---------------- */
   function blankProduct() {
-    return { id: "", name: "", nameEn: "", brand: "", category: "clothing", price: "", compareAt: "", sizes: [], stock: 1, featured: false, hidden: false, addedAt: new Date().toISOString().slice(0, 10), images: [], description: "", descriptionEn: "", buyLink: "" };
+    return { id: "", name: "", brand: "", images: [], category: "other", sizes: [], featured: false, hidden: false, addedAt: new Date().toISOString().slice(0, 10) };
   }
+  const photoGrid = (p) => `
+    <div class="photos" id="photos">
+      ${p.images.map((src, i) => `
+        <div class="photo">
+          <img src="${esc(imgSrc(src))}" alt="Bilde ${i + 1}" />
+          ${i === 0 ? `<span class="cover">Forside</span>` : ""}
+          <div class="photo-tools">
+            <button type="button" data-img-move="${i}" data-dir="-1" ${i === 0 ? "disabled" : ""} aria-label="Flytt til venstre">←</button>
+            <button type="button" data-img-del="${i}" aria-label="Fjern bilde">✕</button>
+            <button type="button" data-img-move="${i}" data-dir="1" ${i === p.images.length - 1 ? "disabled" : ""} aria-label="Flytt til høyre">→</button>
+          </div>
+        </div>`).join("")}
+      <label class="drop${p.images.length ? "" : " drop-big"}" id="drop"><span>${ic.upload}${p.images.length ? "Flere bilder" : "Trykk for å legge til bilde"}</span><input type="file" accept="image/*" multiple hidden id="photoInput" /></label>
+    </div>`;
   function viewEditor() {
     const p = editing;
     const custom = p.category && !CATS.some(([k]) => k === p.category);
+    const hasExtras = ["price", "compareAt", "stock", "nameEn", "description", "descriptionEn", "buyLink"].some((k) => p[k] !== undefined && p[k] !== "") || (p.sizes || []).length || p.featured || p.hidden || (p.category && p.category !== "other");
     return `
       <button class="back" data-act="cancelEdit">${ic.back} Alle produkter</button>
       <div class="editor-head">
-        <h1>${editingIsNew ? "Legg til produkt" : esc(p.name || "Endre produkt")}</h1>
+        <h1>${editingIsNew ? "Nytt produkt" : esc(p.name || "Endre produkt")}</h1>
         ${editingIsNew ? "" : `<a class="btn btn-sm" href="./#/product/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">${ic.ext} Se i butikken</a>`}
       </div>
-      <form id="productForm" novalidate>
-        <div class="editor">
-          <div>
-            <div class="card">
-              <h2>Bilder</h2>
-              <p class="muted">Det første bildet er forsidebildet. Dra bilder hit, eller trykk på boksen for å velge. Høye bilder ser best ut.</p>
-              <div class="photos" id="photos">
-                ${p.images.map((src, i) => `
-                  <div class="photo">
-                    <img src="${esc(imgSrc(src))}" alt="Bilde ${i + 1}" />
-                    ${i === 0 ? `<span class="cover">Forside</span>` : ""}
-                    <div class="photo-tools">
-                      <button type="button" data-img-move="${i}" data-dir="-1" ${i === 0 ? "disabled" : ""} aria-label="Flytt til venstre">←</button>
-                      <button type="button" data-img-del="${i}" aria-label="Fjern bilde">✕</button>
-                      <button type="button" data-img-move="${i}" data-dir="1" ${i === p.images.length - 1 ? "disabled" : ""} aria-label="Flytt til høyre">→</button>
-                    </div>
-                  </div>`).join("")}
-                <label class="drop" id="drop"><span>${ic.upload}Legg til bilder</span><input type="file" accept="image/*" multiple hidden id="photoInput" /></label>
-              </div>
-            </div>
-            <div class="card">
-              <h2>Navn og beskrivelse</h2>
-              <p class="muted">Skriv på norsk. Den engelske teksten vises når noen bytter til engelsk. La den stå tom for å bruke den norske.</p>
-              <div class="grid2">
-                <div class="field"><label for="p-name">Produktnavn (norsk)</label><input class="input" id="p-name" data-p="name" required value="${esc(p.name)}" placeholder="f.eks. Svart hettegenser" /></div>
-                <div class="field"><label for="p-nameEn">Produktnavn (engelsk) <span class="muted">(valgfritt)</span></label><input class="input" id="p-nameEn" data-p="nameEn" value="${esc(p.nameEn || "")}" placeholder="e.g. Black hoodie" /></div>
-              </div>
-              <div class="field"><label for="p-desc">Beskrivelse (norsk)</label><textarea class="input" id="p-desc" data-p="description" rows="4" placeholder="Materiale, passform, hva som følger med…">${esc(p.description)}</textarea></div>
-              <div class="field"><label for="p-descEn">Beskrivelse (engelsk) <span class="muted">(valgfritt)</span></label><textarea class="input" id="p-descEn" data-p="descriptionEn" rows="4">${esc(p.descriptionEn || "")}</textarea></div>
-            </div>
-          </div>
-          <div>
-            <div class="card">
-              <h2>Pris og lager</h2>
-              <div class="grid2" style="margin-top:14px">
-                <div class="field"><label for="p-price">Pris (kr)</label><input class="input" id="p-price" data-p="price" data-type="number" type="number" min="0" step="1" required value="${esc(p.price)}" placeholder="299" /></div>
-                <div class="field"><label for="p-cmp">Før-pris <span class="muted">(valgfritt)</span></label><input class="input" id="p-cmp" data-p="compareAt" data-type="number" type="number" min="0" step="1" value="${esc(p.compareAt ?? "")}" /><span class="hint">Viser varen på salg.</span></div>
-              </div>
-              <div class="field"><label for="p-stock">Hvor mange har du?</label><input class="input" id="p-stock" data-p="stock" data-type="number" type="number" min="0" step="1" value="${esc(p.stock)}" /><span class="hint">Sett til 0 for å vise den som utsolgt.</span></div>
-              <div class="field"><label for="p-sizes">Størrelser <span class="muted">(valgfritt)</span></label><input class="input" id="p-sizes" data-p="sizes" data-type="list" value="${esc((p.sizes || []).join(", "))}" placeholder="f.eks. S, M, L eller 42, 43, 44" /><span class="hint">Skill med komma. La stå tom hvis varen ikke har størrelser.</span></div>
-            </div>
-            <div class="card">
-              <h2>Kategori og merke</h2>
-              <div class="field" style="margin-top:14px"><label for="p-cat">Kategori</label>
-                <select class="input" id="p-cat" data-act-cat>${CATS.map(([k, l]) => `<option value="${k}" ${p.category === k ? "selected" : ""}>${l}</option>`).join("")}<option value="__custom" ${custom ? "selected" : ""}>Egen kategori…</option></select>
-              </div>
-              <div class="field" id="customCat" ${custom ? "" : "hidden"}><label for="p-catc">Navn på egen kategori</label><input class="input" id="p-catc" data-p="category" value="${esc(custom ? p.category : "")}" placeholder="f.eks. Parfyme" /></div>
-              <div class="field"><label for="p-brand">Merke <span class="muted">(valgfritt)</span></label><input class="input" id="p-brand" data-p="brand" value="${esc(p.brand)}" /></div>
-            </div>
-            <div class="card">
-              <h2>Synlighet</h2>
-              <div style="display:grid;gap:14px;margin-top:14px">
-                <label class="switch"><input type="checkbox" data-p="featured" ${p.featured ? "checked" : ""} /><span>Utvalgt<small>Vises først i butikken og i 3D-ringen på forsiden.</small></span></label>
-                <label class="switch"><input type="checkbox" data-p="hidden" ${p.hidden ? "checked" : ""} /><span>Skjult<small>Behold den i admin, men skjul den fra butikken.</small></span></label>
-              </div>
-            </div>
-            <div class="card">
-              <h2>Ekstra</h2>
-              <div class="field" style="margin-top:14px"><label for="p-date">Dato lagt til</label><input class="input" id="p-date" data-p="addedAt" type="date" value="${esc(p.addedAt || "")}" /><span class="hint">De nyeste varene vises først under Nyheter.</span></div>
-              <div class="field"><label for="p-buy">Betalingslenke <span class="muted">(valgfritt)</span></label><input class="input" id="p-buy" data-p="buyLink" type="url" value="${esc(p.buyLink || "")}" placeholder="https://…" /><span class="hint">Legger til en «Kjøp nå»-knapp som går til denne lenken.</span></div>
-            </div>
-          </div>
+      <form id="productForm" class="simple-editor" novalidate>
+        <div class="card">
+          <div class="step-label"><b>1</b> Bilde av produktet</div>
+          ${photoGrid(p)}
+          <div class="step-label" style="margin-top:26px"><b>2</b> Navn</div>
+          <div class="field"><input class="input input-lg" id="p-name" data-p="name" required value="${esc(p.name)}" placeholder="f.eks. Svart hettegenser" aria-label="Navn på produktet" /></div>
+          <div class="step-label" style="margin-top:22px"><b>3</b> Merke</div>
+          <div class="field"><input class="input input-lg" id="p-brand" data-p="brand" value="${esc(p.brand || "")}" placeholder="f.eks. Norge Rep" aria-label="Merke" /></div>
         </div>
+
+        <details class="card more" ${hasExtras ? "open" : ""}>
+          <summary>Flere valg <span class="muted">(valgfritt: pris, størrelser, kategori…)</span></summary>
+          <div class="grid2" style="margin-top:18px">
+            <div class="field"><label for="p-price">Pris (kr)</label><input class="input" id="p-price" data-p="price" data-type="number" type="number" min="0" step="1" value="${esc(p.price ?? "")}" placeholder="La stå tom for «Spør om pris»" /></div>
+            <div class="field"><label for="p-cmp">Før-pris</label><input class="input" id="p-cmp" data-p="compareAt" data-type="number" type="number" min="0" step="1" value="${esc(p.compareAt ?? "")}" /><span class="hint">Viser varen på salg.</span></div>
+            <div class="field"><label for="p-stock">Antall på lager</label><input class="input" id="p-stock" data-p="stock" data-type="number" type="number" min="0" step="1" value="${esc(p.stock ?? "")}" placeholder="Ikke oppgitt" /><span class="hint">La stå tom hvis du ikke vil vise antall. Sett til 0 for utsolgt.</span></div>
+            <div class="field"><label for="p-sizes">Størrelser</label><input class="input" id="p-sizes" data-p="sizes" data-type="list" value="${esc((p.sizes || []).join(", "))}" placeholder="f.eks. S, M, L" /><span class="hint">Skill med komma.</span></div>
+            <div class="field"><label for="p-cat">Kategori</label>
+              <select class="input" id="p-cat" data-act-cat>${CATS.map(([k, l]) => `<option value="${k}" ${p.category === k ? "selected" : ""}>${l}</option>`).join("")}<option value="__custom" ${custom ? "selected" : ""}>Egen kategori…</option></select>
+            </div>
+            <div class="field" id="customCat" ${custom ? "" : "hidden"}><label for="p-catc">Navn på egen kategori</label><input class="input" id="p-catc" data-p="category" value="${esc(custom ? p.category : "")}" placeholder="f.eks. Parfyme" /></div>
+          </div>
+          <div class="field"><label for="p-desc">Beskrivelse</label><textarea class="input" id="p-desc" data-p="description" rows="3">${esc(p.description || "")}</textarea></div>
+          <div class="grid2">
+            <div class="field"><label for="p-nameEn">Navn på engelsk</label><input class="input" id="p-nameEn" data-p="nameEn" value="${esc(p.nameEn || "")}" /><span class="hint">Vises når noen bytter til EN.</span></div>
+            <div class="field"><label for="p-buy">Betalingslenke</label><input class="input" id="p-buy" data-p="buyLink" type="url" value="${esc(p.buyLink || "")}" placeholder="https://…" /></div>
+          </div>
+          <div class="field"><label for="p-descEn">Beskrivelse på engelsk</label><textarea class="input" id="p-descEn" data-p="descriptionEn" rows="3">${esc(p.descriptionEn || "")}</textarea></div>
+          <div style="display:grid;gap:14px;margin-top:6px">
+            <label class="switch"><input type="checkbox" data-p="featured" ${p.featured ? "checked" : ""} /><span>Utvalgt<small>Vises først og i 3D-ringen på forsiden.</small></span></label>
+            <label class="switch"><input type="checkbox" data-p="hidden" ${p.hidden ? "checked" : ""} /><span>Skjult<small>Skjul den fra butikken uten å slette den.</small></span></label>
+          </div>
+        </details>
+
         <div class="err" id="pErr" hidden></div>
         <div class="sticky-actions">
-          ${editingIsNew ? "" : `<button type="button" class="btn btn-danger" data-act="deleteEditing">Slett produkt</button>`}
+          ${editingIsNew ? "" : `<button type="button" class="btn btn-danger" data-act="deleteEditing">Slett</button>`}
           <span style="flex:1"></span>
           <button type="button" class="btn" data-act="cancelEdit">Avbryt</button>
-          <button type="submit" class="btn btn-dark">${editingIsNew ? "Legg til produkt" : "Lagre produkt"}</button>
+          <button type="submit" class="btn btn-dark">${editingIsNew ? "Legg til produkt" : "Lagre"}</button>
         </div>
       </form>`;
   }
@@ -398,26 +384,26 @@
     const box = $("#photos");
     if (!box) return;
     const tmp = document.createElement("div");
-    tmp.innerHTML = viewEditor();
-    box.replaceWith(tmp.querySelector("#photos"));
+    tmp.innerHTML = photoGrid(editing);
+    box.replaceWith(tmp.firstElementChild);
     bindDrop();
   }
   function saveProduct() {
     const p = editing;
     const errs = [];
-    if (!String(p.name || "").trim()) errs.push("Gi produktet et navn.");
-    if (!String(p.category || "").trim()) errs.push("Velg en kategori.");
-    if (p.price === "" || !(Number(p.price) >= 0)) errs.push("Skriv inn en pris.");
+    if (!String(p.name || "").trim()) errs.push("Skriv inn et navn på produktet.");
+    if (p.price !== undefined && p.price !== "" && !(Number(p.price) >= 0)) errs.push("Prisen må være et tall.");
     if (p.buyLink && !/^https?:\/\//i.test(p.buyLink)) errs.push("Betalingslenken må starte med https://");
     const box = $("#pErr");
     if (errs.length) { box.innerHTML = errs.map(esc).join("<br />"); box.hidden = false; box.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
     p.name = p.name.trim();
-    p.nameEn = String(p.nameEn || "").trim();
-    p.category = p.category.trim();
-    p.price = Number(p.price);
-    if (p.compareAt === "" || !(Number(p.compareAt) > 0)) delete p.compareAt; else p.compareAt = Number(p.compareAt);
-    p.stock = Math.max(0, Math.floor(Number(p.stock) || 0));
+    p.brand = String(p.brand || "").trim();
+    p.category = String(p.category || "").trim() || "other";
+    if (p.price === undefined || p.price === "") delete p.price; else p.price = Number(p.price);
+    if (p.compareAt === undefined || p.compareAt === "" || !(Number(p.compareAt) > 0)) delete p.compareAt; else p.compareAt = Number(p.compareAt);
+    if (p.stock === "" || p.stock === undefined || p.stock === null) delete p.stock; else p.stock = Math.max(0, Math.floor(Number(p.stock) || 0));
     p.sizes = p.sizes || [];
+    ["nameEn", "description", "descriptionEn", "buyLink"].forEach((k) => { if (!String(p[k] || "").trim()) delete p[k]; });
     if (editingIsNew) {
       let id = slug(p.name) || "produkt", n = 2;
       while (data.products.some((x) => x.id === id)) id = `${slug(p.name) || "produkt"}-${n++}`;
