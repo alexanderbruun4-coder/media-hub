@@ -41,7 +41,6 @@ Butikken oppdateres omtrent ett minutt etter at du publiserer.
 - Butikk med kategorier, sortering og søk
 - Produktsider med bilder, størrelser og lagerstatus
 - Handlekurv, lagrede varer, kasse med frakt og rabattkoder
-- Siden «Ønsk en vare», der kunder kan be deg skaffe noe
 - «Beste kvaliteten»-løfte på forsiden med en 3D-mynt som snurrer
 - Anmeldelser: kundene skriver anmeldelse på siden «Skriv en anmeldelse», den kommer
   til deg på e-post, og du legger den inn under **Anmeldelser** i admin. Da vises den
