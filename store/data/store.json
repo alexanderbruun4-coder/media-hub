@@ -1,0 +1,446 @@
+{
+  "settings": {
+    "name": "Grail House",
+    "tagline": "Curated resale. Checked for authenticity.",
+    "currency": "$",
+    "email": "orders@example.com",
+    "announcements": [
+      "Free shipping on orders over $150",
+      "Every piece checked for authenticity",
+      "14-day returns on all orders"
+    ],
+    "hero": {
+      "eyebrow": "New arrivals every week",
+      "title": "Rare finds, verified.",
+      "text": "Hand-picked sneakers, outerwear and designer pieces. Every item is inspected before it ships.",
+      "image": "images/hero.jpg",
+      "button": "Shop new arrivals"
+    },
+    "images": {
+      "story": "images/story.jpg",
+      "sell": "images/sell.jpg",
+      "about": "images/about.jpg"
+    },
+    "shipping": {
+      "freeOver": 150,
+      "standard": 9,
+      "express": 19
+    },
+    "paymentLink": "",
+    "paymentNote": "After you place your order we'll email you a secure payment link within 24 hours. Your items are held for you until then.",
+    "discounts": [
+      {
+        "code": "WELCOME10",
+        "percent": 10
+      }
+    ],
+    "instagram": "",
+    "tiktok": "",
+    "about": "Grail House is a curated resale shop for people who care about quality. We hunt down standout sneakers, outerwear and accessories, inspect every single piece by hand, and only list what we'd be proud to own ourselves.\n\nResale keeps great pieces in circulation and out of landfill. Every purchase gives a well-made item a second life.",
+    "sellText": "Have something special? We buy and consign sneakers, outerwear, bags and accessories in great condition. Send us a few photos and we'll reply with an offer within 48 hours.",
+    "faq": [
+      {
+        "q": "Are your items authentic?",
+        "a": "Every piece is inspected by hand before it is listed. We check materials, stitching, labels and serial details. If anything is ever not as described, you get a full refund."
+      },
+      {
+        "q": "What do the condition grades mean?",
+        "a": "New with tags: never worn, original tags. New: never worn. Like new: worn once or twice with no visible wear. Excellent: light signs of wear. Very good: some visible wear, shown in photos. Vintage: older piece with natural aging."
+      },
+      {
+        "q": "How do I pay?",
+        "a": "Place your order and we'll email you a secure payment link within 24 hours. Your items are reserved for you until then."
+      },
+      {
+        "q": "How fast is shipping?",
+        "a": "Orders ship within 2 business days. Standard delivery takes 3–7 days and express takes 1–3 days."
+      },
+      {
+        "q": "Can I return an item?",
+        "a": "Yes. Returns are accepted within 14 days of delivery as long as the item is unworn and in the condition it arrived."
+      }
+    ],
+    "policies": {
+      "shipping": "Orders are packed by hand and ship within 2 business days. Standard shipping takes 3–7 business days. Express shipping takes 1–3 business days. Shipping is free on orders over the amount shown at checkout. You'll receive a tracking number by email as soon as your order ships.",
+      "returns": "You can return any item within 14 days of delivery. Items must be unworn, with all original tags and packaging. Email us to start a return and we'll send instructions. Refunds are issued to your original payment method within 5 business days of us receiving the item.",
+      "privacy": "We only collect the information needed to process your order: your name, email and shipping address. We never sell or share your information. Your bag and saved items are stored only on your own device.",
+      "terms": "All items are pre-owned or new resale items unless stated otherwise. Prices and availability can change without notice. By placing an order you agree to pay the total shown at checkout. We reserve the right to cancel orders if an item becomes unavailable, with a full refund."
+    },
+    "reviews": []
+  },
+  "products": [
+    {
+      "id": "red-suede-high-top",
+      "name": "Red Suede High-Top",
+      "brand": "",
+      "category": "Footwear",
+      "price": 240,
+      "condition": "New",
+      "sizes": [
+        "US 8",
+        "US 9",
+        "US 10",
+        "US 11",
+        "US 12"
+      ],
+      "stock": 1,
+      "featured": true,
+      "addedAt": "2026-09-30",
+      "images": [
+        "images/red-suede-high-top.jpg"
+      ],
+      "description": "Rich red suede upper with tonal stitching and a cushioned sole. Comes in the original box.",
+      "buyLink": ""
+    },
+    {
+      "id": "chunky-runner",
+      "name": "Chunky Retro Runner",
+      "brand": "",
+      "category": "Footwear",
+      "price": 180,
+      "compareAt": 210,
+      "condition": "Like new",
+      "sizes": [
+        "US 8",
+        "US 9",
+        "US 10",
+        "US 11"
+      ],
+      "stock": 1,
+      "featured": true,
+      "addedAt": "2026-09-28",
+      "images": [
+        "images/chunky-runner.jpg"
+      ],
+      "description": "Layered mesh and suede runner in a bold multicolor colorway. Worn once, no creasing.",
+      "buyLink": ""
+    },
+    {
+      "id": "suede-brogue",
+      "name": "Teal Suede Brogue",
+      "brand": "",
+      "category": "Footwear",
+      "price": 210,
+      "condition": "New",
+      "sizes": [
+        "EU 41",
+        "EU 42",
+        "EU 43",
+        "EU 44"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-09-20",
+      "images": [
+        "images/suede-brogue.jpg"
+      ],
+      "description": "Hand-finished suede brogue with a stacked leather heel and classic wingtip detailing.",
+      "buyLink": ""
+    },
+    {
+      "id": "leather-work-boots",
+      "name": "Leather Work Boots",
+      "brand": "",
+      "category": "Footwear",
+      "price": 260,
+      "condition": "Excellent",
+      "sizes": [
+        "US 9",
+        "US 10",
+        "US 11"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-09-12",
+      "images": [
+        "images/leather-work-boots.jpg"
+      ],
+      "description": "Full-grain leather lace-up boots, broken in and ready to go. Light wear on the soles.",
+      "buyLink": ""
+    },
+    {
+      "id": "leather-derby",
+      "name": "Cognac Leather Derby",
+      "brand": "",
+      "category": "Footwear",
+      "price": 195,
+      "condition": "Like new",
+      "sizes": [
+        "US 8",
+        "US 9",
+        "US 10",
+        "US 11"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-08-30",
+      "images": [
+        "images/leather-derby.jpg"
+      ],
+      "description": "Polished cognac leather derby with Goodyear-welted construction. A true investment shoe.",
+      "buyLink": ""
+    },
+    {
+      "id": "leather-biker-jacket",
+      "name": "Leather Biker Jacket",
+      "brand": "",
+      "category": "Outerwear",
+      "price": 420,
+      "compareAt": 560,
+      "condition": "Excellent",
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "stock": 1,
+      "featured": true,
+      "addedAt": "2026-09-29",
+      "images": [
+        "images/leather-biker-jacket.jpg"
+      ],
+      "description": "Heavy lambskin biker with asymmetric zip, quilted shoulders and silver hardware.",
+      "buyLink": ""
+    },
+    {
+      "id": "vintage-denim-jacket",
+      "name": "Vintage Denim Jacket",
+      "brand": "",
+      "category": "Outerwear",
+      "price": 165,
+      "condition": "Vintage",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "stock": 1,
+      "featured": true,
+      "addedAt": "2026-09-25",
+      "images": [
+        "images/vintage-denim-jacket.jpg"
+      ],
+      "description": "Rigid indigo denim with a corduroy collar. Naturally faded with real character.",
+      "buyLink": ""
+    },
+    {
+      "id": "rust-bomber-jacket",
+      "name": "Rust Bomber Jacket",
+      "brand": "",
+      "category": "Outerwear",
+      "price": 185,
+      "condition": "New with tags",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": 2,
+      "featured": false,
+      "addedAt": "2026-09-18",
+      "images": [
+        "images/rust-bomber-jacket.jpg"
+      ],
+      "description": "Lightweight bomber in a warm rust tone with ribbed trims and utility sleeve pocket.",
+      "buyLink": ""
+    },
+    {
+      "id": "heavyweight-crewneck",
+      "name": "Heavyweight Crewneck",
+      "brand": "",
+      "category": "Apparel",
+      "price": 85,
+      "condition": "New",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": 3,
+      "featured": false,
+      "addedAt": "2026-09-27",
+      "images": [
+        "images/heavyweight-crewneck.jpg"
+      ],
+      "description": "Dense loopback cotton crewneck in clean white. Structured fit that holds its shape.",
+      "buyLink": ""
+    },
+    {
+      "id": "essential-white-tee",
+      "name": "Essential White Tee",
+      "brand": "",
+      "category": "Apparel",
+      "price": 45,
+      "condition": "New with tags",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": 5,
+      "featured": false,
+      "addedAt": "2026-09-15",
+      "images": [
+        "images/essential-white-tee.jpg"
+      ],
+      "description": "The perfect heavyweight white tee with a boxy fit and ribbed collar.",
+      "buyLink": ""
+    },
+    {
+      "id": "raw-denim-jeans",
+      "name": "Raw Selvedge Jeans",
+      "brand": "",
+      "category": "Apparel",
+      "price": 140,
+      "condition": "Like new",
+      "sizes": [
+        "30",
+        "32",
+        "34"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-09-10",
+      "images": [
+        "images/raw-denim-jeans.jpg"
+      ],
+      "description": "Dark raw selvedge denim in a straight leg. Barely worn, so the fades are all yours.",
+      "buyLink": ""
+    },
+    {
+      "id": "red-top-handle-bag",
+      "name": "Red Leather Top-Handle Bag",
+      "brand": "",
+      "category": "Bags",
+      "price": 380,
+      "condition": "Excellent",
+      "sizes": [
+        "One size"
+      ],
+      "stock": 1,
+      "featured": true,
+      "addedAt": "2026-09-26",
+      "images": [
+        "images/red-top-handle-bag.jpg"
+      ],
+      "description": "Structured patent leather top-handle bag with a polished turn-lock closure.",
+      "buyLink": ""
+    },
+    {
+      "id": "wicker-top-handle-bag",
+      "name": "Wicker & Leather Bag",
+      "brand": "",
+      "category": "Bags",
+      "price": 290,
+      "condition": "Like new",
+      "sizes": [
+        "One size"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-09-14",
+      "images": [
+        "images/wicker-top-handle-bag.jpg"
+      ],
+      "description": "Hand-woven wicker body with smooth leather flap and handle. A statement summer piece.",
+      "buyLink": ""
+    },
+    {
+      "id": "leather-satchel",
+      "name": "Leather Satchel",
+      "brand": "",
+      "category": "Bags",
+      "price": 310,
+      "condition": "Very good",
+      "sizes": [
+        "One size"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-09-05",
+      "images": [
+        "images/leather-satchel.jpg"
+      ],
+      "description": "Mustard leather satchel with a front flap pocket and adjustable shoulder strap.",
+      "buyLink": ""
+    },
+    {
+      "id": "canvas-daypack",
+      "name": "Canvas Daypack",
+      "brand": "",
+      "category": "Bags",
+      "price": 95,
+      "condition": "New",
+      "sizes": [
+        "One size"
+      ],
+      "stock": 2,
+      "featured": false,
+      "addedAt": "2026-08-28",
+      "images": [
+        "images/canvas-daypack.jpg"
+      ],
+      "description": "Water-resistant canvas backpack with a padded laptop sleeve and clean minimal lines.",
+      "buyLink": ""
+    },
+    {
+      "id": "round-metal-sunglasses",
+      "name": "Round Metal Sunglasses",
+      "brand": "",
+      "category": "Accessories",
+      "price": 120,
+      "condition": "New",
+      "sizes": [
+        "One size"
+      ],
+      "stock": 2,
+      "featured": false,
+      "addedAt": "2026-09-22",
+      "images": [
+        "images/round-metal-sunglasses.jpg"
+      ],
+      "description": "Gold-tone round frames with dark green lenses and full UV protection.",
+      "buyLink": ""
+    },
+    {
+      "id": "minimal-white-watch",
+      "name": "Minimal White Watch",
+      "brand": "",
+      "category": "Accessories",
+      "price": 150,
+      "condition": "Like new",
+      "sizes": [
+        "One size"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-09-08",
+      "images": [
+        "images/minimal-white-watch.jpg"
+      ],
+      "description": "Clean minimalist watch with a white silicone strap and matte dial.",
+      "buyLink": ""
+    },
+    {
+      "id": "leather-bifold-wallet",
+      "name": "Leather Bifold Wallet",
+      "brand": "",
+      "category": "Accessories",
+      "price": 75,
+      "condition": "Excellent",
+      "sizes": [
+        "One size"
+      ],
+      "stock": 1,
+      "featured": false,
+      "addedAt": "2026-09-02",
+      "images": [
+        "images/leather-bifold-wallet.jpg"
+      ],
+      "description": "Vegetable-tanned leather bifold that has aged to a beautiful patina.",
+      "buyLink": ""
+    }
+  ]
+}
