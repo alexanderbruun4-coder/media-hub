@@ -7,25 +7,25 @@ window.I18N = {
   no: {
     // meny
     "nav.home": "Hjem", "nav.shop": "Butikk", "nav.new": "Nyheter", "nav.request": "Ønsk en vare", "nav.about": "Om oss",
-    "nav.faq": "FAQ", "nav.contact": "Kontakt", "nav.saved": "Lagrede varer", "nav.review": "Skriv en anmeldelse",
+    "nav.faq": "FAQ", "nav.contact": "Kontakt", "nav.saved": "Lagrede varer", "nav.review": "Skriv en anmeldelse", "nav.admin": "Admin",
     "a11y.menu": "Åpne meny", "a11y.search": "Søk", "a11y.saved": "Lagrede varer", "a11y.bag": "Handlekurv", "a11y.close": "Lukk",
     "a11y.lang": "Bytt språk",
 
-    announce: ["Billig og god kvalitet", "Kjapp shipping i hele Norge", "Selling whatever u want"],
+    announce: ["Billig og god kvalitet", "Kjapp shipping i hele Norge", "Beste kvaliteten"],
 
     // forside
     "hero.eyebrow": "Norges nye favorittbutikk",
     "hero.title": "Billig. God kvalitet. Kjapp shipping.",
-    "hero.text": "Vi selger det du vil ha, til priser som faktisk gir mening. Sendes kjapt, rett hjem til deg.",
+    "hero.text": "Kvalitetsvarer til priser som faktisk gir mening. Sendes kjapt, rett hjem til deg.",
     "hero.cta": "Se butikken", "hero.cta2": "Ønsk en vare",
-    "hero.badge": "Selling whatever u want",
+    "hero.badge": "Beste kvalitet • Kjapp shipping •",
     "f1.t": "Billig og god kvalitet", "f1.d": "Lave priser uten å gå på akkord med kvaliteten.",
     "f2.t": "Kjapp shipping", "f2.d": "Vi sender raskt, så du får varene dine fort.",
-    "f3.t": "Vi selger det du vil ha", "f3.d": "Finner du det ikke? Si ifra, så skaffer vi det.",
+    "f3.t": "Trygg handel", "f3.d": "14 dagers angrerett, og vi svarer innen én dag.",
     "home.products.eyebrow": "Butikken", "home.products.title": "Siste nytt", "home.viewAll": "Se alle",
     "vault.eyebrow": "I 3D", "vault.title": "Utforsk utvalget.", "vault.text": "Dra eller sveip for å snurre. Trykk på en vare for å se den.",
     "vault.prev": "Forrige vare", "vault.next": "Neste vare",
-    "req.eyebrow": "Selling whatever u want", "req.title": "Finner du ikke det du leter etter?",
+    "req.eyebrow": "Ønsk en vare", "req.title": "Finner du ikke det du leter etter?",
     "req.text": "Si hva du vil ha, så prøver vi å skaffe det til deg. Billig, i god kvalitet og med kjapp levering.",
     "req.cta": "Ønsk en vare",
 
@@ -94,7 +94,7 @@ window.I18N = {
     "ord.mailSubject": "Bestilling {n} – {total}",
 
     // ønsk en vare
-    "rq.title": "Ønsk en vare", "rq.lead": "Selling whatever u want. Fortell oss hva du leter etter, så sjekker vi om vi kan skaffe det. Billig og i god kvalitet.",
+    "rq.title": "Ønsk en vare", "rq.lead": "Fortell oss hva du leter etter, så sjekker vi om vi kan skaffe det. Billig og i god kvalitet.",
     "rq.s1": "Si hva du vil ha", "rq.s1d": "Fyll ut skjemaet under.", "rq.s2": "Vi finner det", "rq.s2d": "Vi svarer med pris innen 48 timer.",
     "rq.s3": "Kjapp levering", "rq.s3d": "Du får det rett hjem.",
     "rq.name": "Navn", "rq.email": "E-post", "rq.item": "Hva vil du ha?", "rq.itemPh": "f.eks. hettegenser, sneakers, øreplugger",
@@ -103,7 +103,7 @@ window.I18N = {
 
     // om, kontakt, faq
     "about.title": "Om {name}",
-    "about.text": "{name} er en norsk nettbutikk med én enkel idé: ting du faktisk vil ha, til en pris som gir mening. Vi holder prisene lave, passer på kvaliteten og sender kjapt, rett hjem til deg.\n\nFinner du ikke det du leter etter? Selling whatever u want. Bare si ifra.",
+    "about.text": "{name} er en norsk nettbutikk med én enkel idé: ting du faktisk vil ha, til en pris som gir mening. Vi holder prisene lave, passer på kvaliteten og sender kjapt, rett hjem til deg.\n\nFinner du ikke det du leter etter? Bare si ifra.",
     "about.v1": "Billig", "about.v1d": "Priser som gir mening.", "about.v2": "God kvalitet", "about.v2d": "Vi sjekker varene før de sendes.",
     "about.v3": "Kjapt", "about.v3d": "Rask shipping i hele Norge.",
     "ct.title": "Kontakt oss", "ct.lead": "Spørsmål om en vare eller en bestilling? Vi svarer vanligvis innen én dag.",
@@ -113,7 +113,7 @@ window.I18N = {
     faq: [
       ["Hvor lang tid tar frakten?", "Vi sender bestillinger kjapt, vanligvis innen 1–2 virkedager. Standard levering tar 2–5 virkedager i Norge, og ekspress tar 1–2 virkedager."],
       ["Hvordan betaler jeg?", "Når du har bestilt, sender vi deg betalingsinfo på e-post innen 24 timer. Du kan betale med Vipps eller betalingslenke. Varene holdes av til deg."],
-      ["Kan jeg ønske meg en vare?", "Ja! Selling whatever u want. Bruk siden «Ønsk en vare», så sjekker vi om vi kan skaffe det du vil ha."],
+      ["Kan jeg ønske meg en vare?", "Ja! Bruk siden «Ønsk en vare», så sjekker vi om vi kan skaffe det du vil ha."],
       ["Kan jeg returnere en vare?", "Ja. Du har 14 dagers angrerett. Ubrukte varer kan returneres innen 14 dager etter at du fikk dem. Send oss en e-post for å starte en retur."],
       ["Sender dere utenfor Norge?", "Send oss en e-post, så finner vi en løsning."],
     ],
@@ -133,7 +133,7 @@ window.I18N = {
     "sv.title": "Lagrede varer", "sv.lead": "Varer du har lagret til senere. De lagres på denne enheten.",
     "sv.empty": "Ingen lagrede varer enda", "sv.emptyText": "Trykk på hjertet på en vare for å lagre den her.", "sv.browse": "Se butikken",
     "ft.shop": "Butikk", "ft.help": "Hjelp", "ft.info": "Info", "ft.all": "Alle varer", "ft.rights": "Alle rettigheter forbeholdt.",
-    "ft.tag": "Billig og god kvalitet. Kjapp shipping. Selling whatever u want.",
+    "ft.tag": "Billig og god kvalitet. Kjapp shipping i hele Norge.",
     "load.fail": "Butikken kunne ikke lastes", "load.failText": "Prøv å laste inn siden på nytt om litt.",
     "preview": "Forhåndsvisning: viser endringer som ikke er publisert",
     "skip": "Hopp til innhold",
@@ -143,24 +143,24 @@ window.I18N = {
 
   en: {
     "nav.home": "Home", "nav.shop": "Shop", "nav.new": "New in", "nav.request": "Request an item", "nav.about": "About",
-    "nav.faq": "FAQ", "nav.contact": "Contact", "nav.saved": "Saved items", "nav.review": "Write a review",
+    "nav.faq": "FAQ", "nav.contact": "Contact", "nav.saved": "Saved items", "nav.review": "Write a review", "nav.admin": "Admin",
     "a11y.menu": "Open menu", "a11y.search": "Search", "a11y.saved": "Saved items", "a11y.bag": "Shopping bag", "a11y.close": "Close",
     "a11y.lang": "Change language",
 
-    announce: ["Cheap and good quality", "Fast shipping all over Norway", "Selling whatever u want"],
+    announce: ["Cheap and good quality", "Fast shipping all over Norway", "The best quality"],
 
     "hero.eyebrow": "Norway's new favourite shop",
     "hero.title": "Cheap. Good quality. Fast shipping.",
-    "hero.text": "We sell whatever you want, at prices that actually make sense. Shipped fast, straight to your door.",
+    "hero.text": "Quality products at prices that actually make sense. Shipped fast, straight to your door.",
     "hero.cta": "Shop now", "hero.cta2": "Request an item",
-    "hero.badge": "Selling whatever u want",
+    "hero.badge": "Best quality • Fast shipping •",
     "f1.t": "Cheap and good quality", "f1.d": "Low prices without cutting corners on quality.",
     "f2.t": "Fast shipping", "f2.d": "We ship quickly, so your order arrives fast.",
-    "f3.t": "Selling whatever u want", "f3.d": "Can't find it? Tell us, and we'll get it for you.",
+    "f3.t": "Safe shopping", "f3.d": "14-day returns, and we reply within a day.",
     "home.products.eyebrow": "The shop", "home.products.title": "Latest drops", "home.viewAll": "View all",
     "vault.eyebrow": "In 3D", "vault.title": "Explore the collection.", "vault.text": "Drag or swipe to spin. Tap an item to see it.",
     "vault.prev": "Previous item", "vault.next": "Next item",
-    "req.eyebrow": "Selling whatever u want", "req.title": "Can't find what you're looking for?",
+    "req.eyebrow": "Request an item", "req.title": "Can't find what you're looking for?",
     "req.text": "Tell us what you want, and we'll try to get it for you. Cheap, good quality and shipped fast.",
     "req.cta": "Request an item",
 
@@ -221,7 +221,7 @@ window.I18N = {
     "ord.missing": "We couldn't find that order on this device. Check your email.",
     "ord.mailSubject": "Order {n} – {total}",
 
-    "rq.title": "Request an item", "rq.lead": "Selling whatever u want. Tell us what you're looking for, and we'll check if we can get it for you. Cheap and in good quality.",
+    "rq.title": "Request an item", "rq.lead": "Tell us what you're looking for, and we'll check if we can get it for you. Cheap and in good quality.",
     "rq.s1": "Tell us what you want", "rq.s1d": "Fill in the form below.", "rq.s2": "We find it", "rq.s2d": "We reply with a price within 48 hours.",
     "rq.s3": "Fast delivery", "rq.s3d": "Straight to your door.",
     "rq.name": "Name", "rq.email": "Email", "rq.item": "What do you want?", "rq.itemPh": "e.g. hoodie, sneakers, earbuds",
@@ -229,7 +229,7 @@ window.I18N = {
     "rq.send": "Send request", "rq.sent": "Your email app opened. Press send.", "rq.subject": "Request: {item}",
 
     "about.title": "About {name}",
-    "about.text": "{name} is a Norwegian online shop with one simple idea: things you actually want, at a price that makes sense. We keep prices low, look after quality and ship fast, straight to your door.\n\nCan't find what you're looking for? Selling whatever u want. Just ask.",
+    "about.text": "{name} is a Norwegian online shop with one simple idea: things you actually want, at a price that makes sense. We keep prices low, look after quality and ship fast, straight to your door.\n\nCan't find what you're looking for? Just ask.",
     "about.v1": "Cheap", "about.v1d": "Prices that make sense.", "about.v2": "Good quality", "about.v2d": "We check items before they ship.",
     "about.v3": "Fast", "about.v3d": "Quick shipping all over Norway.",
     "ct.title": "Contact us", "ct.lead": "Questions about an item or an order? We usually reply within one day.",
@@ -239,7 +239,7 @@ window.I18N = {
     faq: [
       ["How long does shipping take?", "We ship orders fast, usually within 1–2 business days. Standard delivery takes 2–5 business days in Norway, and express takes 1–2 business days."],
       ["How do I pay?", "After you order, we'll email you payment details within 24 hours. You can pay with Vipps or a payment link. Your items are held for you."],
-      ["Can I request an item?", "Yes! Selling whatever u want. Use the “Request an item” page and we'll check if we can get it for you."],
+      ["Can I request an item?", "Yes! Use the “Request an item” page and we'll check if we can get it for you."],
       ["Can I return an item?", "Yes. You have a 14-day right of withdrawal. Unused items can be returned within 14 days of delivery. Email us to start a return."],
       ["Do you ship outside Norway?", "Send us an email and we'll work something out."],
     ],
@@ -257,7 +257,7 @@ window.I18N = {
     "sv.title": "Saved items", "sv.lead": "Items you've saved for later. They're stored on this device.",
     "sv.empty": "Nothing saved yet", "sv.emptyText": "Tap the heart on any item to keep it here.", "sv.browse": "Browse the shop",
     "ft.shop": "Shop", "ft.help": "Help", "ft.info": "Info", "ft.all": "All products", "ft.rights": "All rights reserved.",
-    "ft.tag": "Cheap and good quality. Fast shipping. Selling whatever u want.",
+    "ft.tag": "Cheap and good quality. Fast shipping all over Norway.",
     "load.fail": "The shop couldn't load", "load.failText": "Please refresh the page in a moment.",
     "preview": "Preview mode: showing unpublished changes",
     "skip": "Skip to content",

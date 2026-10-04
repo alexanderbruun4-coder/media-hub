@@ -6,6 +6,8 @@ En mørk og fancy nettbutikk med 3D og animasjoner, på norsk og engelsk.
 - **Admin-panelet:** https://alexanderbruun4-coder.github.io/media-hub/norge-rep/admin.html
 
 Butikken starter uten produkter. Du legger dem til i admin-panelet.
+Du finner admin-panelet når som helst via **Admin**-lenken nederst på nettsiden,
+eller i menyen på mobil.
 
 ## Kom i gang (5 minutter)
 
@@ -33,7 +35,7 @@ Butikken oppdateres omtrent ett minutt etter at du publiserer.
 - 3D-ring med produkter som du kan dra og snurre, når du har 5 produkter eller flere
 - Kort som vipper i 3D, nordlys-bakgrunn, ord som glir inn og et rullende bånd med slagord
 - Bytte mellom norsk og engelsk øverst til høyre
-- «Cheap and good quality», «Fast shipping» og «Selling whatever u want» på forsiden
+- «Cheap and good quality», «Fast shipping» og «Best quality» på forsiden
 - Butikk med kategorier, sortering og søk
 - Produktsider med bilder, størrelser og lagerstatus
 - Handlekurv, lagrede varer, kasse med frakt og rabattkoder
