@@ -10,7 +10,7 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const main = $("#main");
   const PREVIEW = new URLSearchParams(location.search).has("preview");
-  const SLOGANS = ["Cheap and good quality", "Fast shipping", "Selling whatever u want"];
+  const SLOGANS = ["Cheap and good quality", "Fast shipping", "Best quality"];
 
   let S = {};
   let PRODUCTS = [];
@@ -276,7 +276,7 @@
     const vault = [...live.filter((p) => p.featured), ...[...live].sort(byNewest).filter((p) => !p.featured)].slice(0, 10);
     const title = t("hero.title");
     const firstSentence = title.split(/\s+/).findIndex((w) => /\.$/.test(w));
-    const badge = `${t("hero.badge")} • ${t("hero.badge")} • `;
+    const badge = `${t("hero.badge")} `;
     return {
       title: `${S.name} | ${t("hero.title")}`,
       html: `
@@ -305,7 +305,7 @@
         <div class="wrap features">
           <div class="feature reveal"><div class="f-icon">${icon("tag")}</div><span class="f-num">01</span><h3>${t("f1.t")}</h3><p>${t("f1.d")}</p></div>
           <div class="feature reveal"><div class="f-icon">${icon("bolt")}</div><span class="f-num">02</span><h3>${t("f2.t")}</h3><p>${t("f2.d")}</p></div>
-          <div class="feature reveal"><div class="f-icon">${icon("spark")}</div><span class="f-num">03</span><h3>${t("f3.t")}</h3><p>${t("f3.d")}</p></div>
+          <div class="feature reveal"><div class="f-icon">${icon("lock")}</div><span class="f-num">03</span><h3>${t("f3.t")}</h3><p>${t("f3.d")}</p></div>
         </div>
       </section>
 
@@ -713,7 +713,7 @@
       <div class="wrap">
         <div class="content-split">
           <div>
-            <p class="eyebrow">Selling whatever u want</p>
+            <p class="eyebrow">${t("req.eyebrow")}</p>
             <h1 class="title-l" style="margin:18px 0 22px">${t("rq.title")}</h1>
             <p class="lead">${t("rq.lead")}</p>
             <div class="steps">
@@ -838,7 +838,8 @@
       <a href="#/about" data-close-layers>${t("nav.about")}</a>
       <a class="menu-sub" href="#/faq" data-close-layers>${t("nav.faq")}</a>
       <a class="menu-sub" href="#/contact" data-close-layers>${t("nav.contact")}</a>
-      <a class="menu-sub" href="#/review" data-close-layers>${t("nav.review")}</a>`;
+      <a class="menu-sub" href="#/review" data-close-layers>${t("nav.review")}</a>
+      <a class="menu-sub" href="admin.html">${t("nav.admin")}</a>`;
     const socials = [["Instagram", S.instagram], ["TikTok", S.tiktok], ["Snapchat", S.snapchat]].filter(([, u]) => safeUrl(u));
     $("#footer").innerHTML = `
       <div class="wrap">
@@ -850,10 +851,10 @@
           </div>
           <div><h4>${t("ft.shop")}</h4><ul><li><a href="#/shop">${t("ft.all")}</a></li><li><a href="#/new">${t("nav.new")}</a></li>${CATS.slice(0, 5).map((c) => `<li><a href="#/shop/${slug(c)}">${esc(catLabel(c))}</a></li>`).join("")}<li><a href="#/request">${t("nav.request")}</a></li><li><a href="#/review">${t("nav.review")}</a></li></ul></div>
           <div><h4>${t("ft.help")}</h4><ul><li><a href="#/faq">${t("nav.faq")}</a></li><li><a href="#/policy/shipping">${t("pol.shipping")}</a></li><li><a href="#/policy/returns">${t("pol.returns")}</a></li><li><a href="#/contact">${t("nav.contact")}</a></li></ul></div>
-          <div><h4>${t("ft.info")}</h4><ul><li><a href="#/about">${t("nav.about")}</a></li><li><a href="#/policy/privacy">${t("pol.privacy")}</a></li><li><a href="#/policy/terms">${t("pol.terms")}</a></li></ul></div>
+          <div><h4>${t("ft.info")}</h4><ul><li><a href="#/about">${t("nav.about")}</a></li><li><a href="#/policy/privacy">${t("pol.privacy")}</a></li><li><a href="#/policy/terms">${t("pol.terms")}</a></li><li><a href="admin.html" class="admin-link">${t("nav.admin")}</a></li></ul></div>
         </div>
         <div class="footer-big" aria-hidden="true">${esc(S.name)}</div>
-        <div class="footer-bottom"><span>© ${new Date().getFullYear()} ${esc(S.name)}. ${t("ft.rights")}</span><span>${esc(S.email || "")}</span></div>
+        <div class="footer-bottom"><span>© ${new Date().getFullYear()} ${esc(S.name)}. ${t("ft.rights")}</span><span>${esc(S.email || "")} · <a href="admin.html">${t("nav.admin")}</a></span></div>
       </div>`;
     const msgs = t("announce");
     const bar = $("#announce");
@@ -877,6 +878,7 @@
     const parts = path.split("/").filter(Boolean).map((x) => { try { return decodeURIComponent(x); } catch { return x; } });
     const q = new URLSearchParams(qs || "");
     const [a, b] = parts;
+    if (a === "admin") { location.href = "admin.html"; return; }
     let page;
     switch (a) {
       case undefined: page = pageHome(); break;
