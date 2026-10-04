@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Store</title>
+  <meta name="description" content="Shop cool little things." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛍️</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Announcement bar -->
+  <div class="announce" id="announce"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-inner">
+      <a href="#" class="logo" id="logo">Store</a>
+      <nav class="nav">
+        <a href="#shop">Shop</a>
+        <a href="#about">About</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <button class="cart-btn" id="openCart" aria-label="Open cart">
+        <span aria-hidden="true">🛒</span>
+        <span class="cart-count" id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <div>
+        <p class="eyebrow">New drop is live ✨</p>
+        <h1 id="heroTitle">Store</h1>
+        <p class="hero-sub" id="heroTagline"></p>
+        <a href="#shop" class="btn btn-primary">Shop now</a>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <span>🌈</span><span>📿</span><span>🐸</span><span>🎲</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Shop -->
+  <main id="shop" class="container section">
+    <div class="shop-head">
+      <h2>Shop</h2>
+      <input type="search" id="search" class="search" placeholder="Search products…" aria-label="Search products" />
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="grid" id="grid"></div>
+    <p class="empty" id="empty" hidden>No products match your search.</p>
+  </main>
+
+  <!-- About -->
+  <section id="about" class="section about">
+    <div class="container about-inner">
+      <div class="perk"><span>🚚</span><h3>Fast shipping</h3><p>Orders ship within 2–3 days.</p></div>
+      <div class="perk"><span>💬</span><h3>Real humans</h3><p>Questions? Email us and we reply fast.</p></div>
+      <div class="perk"><span>💛</span><h3>Small business</h3><p>Every order supports a young entrepreneur.</p></div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="container section">
+    <h2>FAQ</h2>
+    <details><summary>How do I pay?</summary><p id="faqPay"></p></details>
+    <details><summary>How long does shipping take?</summary><p>Most orders arrive in 5–7 days after payment.</p></details>
+    <details><summary>Can I return something?</summary><p>Yes. If something arrives broken, email us within 14 days and we'll make it right.</p></details>
+    <details><summary>How do I contact you?</summary><p>Email <a id="faqEmail" href="#"></a>.</p></details>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>© <span id="year"></span> <span id="footerName"></span></p>
+      <div class="socials" id="socials"></div>
+    </div>
+  </footer>
+
+  <!-- Product details popup -->
+  <div class="overlay" id="productOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pmName">
+      <button class="close" data-close aria-label="Close">✕</button>
+      <div class="modal-body" id="productBody"></div>
+    </div>
+  </div>
+
+  <!-- Cart drawer -->
+  <div class="overlay" id="cartOverlay" hidden>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-label="Shopping cart">
+      <div class="drawer-head">
+        <h2>Your cart</h2>
+        <button class="close" data-close aria-label="Close">✕</button>
+      </div>
+      <div class="drawer-items" id="cartItems"></div>
+      <div class="drawer-foot" id="cartFoot"></div>
+    </aside>
+  </div>
+
+  <!-- Checkout popup -->
+  <div class="overlay" id="checkoutOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="coTitle">
+      <button class="close" data-close aria-label="Close">✕</button>
+      <form class="modal-body checkout" id="checkoutForm">
+        <h2 id="coTitle">Checkout</h2>
+        <p class="muted" id="coNote"></p>
+        <label>Your name <input name="name" required autocomplete="name" /></label>
+        <label>Your email <input name="email" type="email" required autocomplete="email" /></label>
+        <label>Shipping address <textarea name="address" rows="3" required autocomplete="street-address"></textarea></label>
+        <label>Order note (optional) <textarea name="note" rows="2" placeholder="e.g. the name for your bracelet"></textarea></label>
+        <div class="summary" id="coSummary"></div>
+        <button class="btn btn-primary btn-block" type="submit">Send order</button>
+        <p class="muted small">This opens your email app with your order filled in. Just press send.</p>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="products.js"></script>
+  <script src="store.js"></script>
+</body>
+</html>
