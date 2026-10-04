@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "name": "Norge Rep",
+    "email": "ordre@example.com",
+    "vipps": "",
+    "paymentLink": "",
+    "shipping": { "freeOver": 800, "standard": 59, "express": 129 },
+    "instagram": "",
+    "tiktok": "",
+    "snapchat": "",
+    "discounts": [{ "code": "VELKOMMEN10", "percent": 10 }]
+  },
+  "products": []
+}

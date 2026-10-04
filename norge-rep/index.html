@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Norge Rep</title>
+  <meta name="description" content="Norge Rep – billig og god kvalitet, kjapp shipping. Selling whatever u want." />
+  <meta name="theme-color" content="#06070b" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2337f2c0'/><stop offset='1' stop-color='%238b5cf6'/></linearGradient></defs><rect width='64' height='64' rx='16' fill='%2306070b'/><path d='M14 14h36v36H14z' fill='none' stroke='url(%23g)' stroke-width='5'/><path d='M27 14v36M14 32h36' stroke='url(%23g)' stroke-width='5'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <!-- ?v= makes browsers fetch fresh files after a code update. Bump it when changing css/js. -->
+  <link rel="stylesheet" href="css/site.css?v=2" />
+</head>
+<body>
+  <a class="skip" href="#main" data-t="skip">Hopp til innhold</a>
+
+  <!-- animated northern-lights background -->
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <div class="announce" id="announce" aria-live="polite"></div>
+
+  <header class="header" id="header">
+    <div class="wrap header-inner">
+      <button class="icon-btn menu-btn" id="menuBtn" data-t-label="a11y.menu"><svg><use href="#i-menu"/></svg></button>
+      <a href="#/" class="logo" id="logo"><span class="logo-mark" aria-hidden="true"></span><span id="logoText">Norge Rep</span></a>
+      <nav class="nav" id="nav" aria-label="Main"></nav>
+      <div class="header-actions">
+        <div class="lang" role="group" data-t-label="a11y.lang">
+          <button data-lang="no" aria-pressed="true">NO</button>
+          <button data-lang="en" aria-pressed="false">EN</button>
+        </div>
+        <button class="icon-btn" id="searchBtn" data-t-label="a11y.search"><svg><use href="#i-search"/></svg></button>
+        <a class="icon-btn hide-xs" href="#/saved" data-t-label="a11y.saved"><svg><use href="#i-heart"/></svg><span class="count" id="savedCount" hidden></span></a>
+        <button class="icon-btn" id="bagBtn" data-t-label="a11y.bag"><svg><use href="#i-bag"/></svg><span class="count" id="bagCount" hidden></span></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1"><div class="loading"><span></span></div></main>
+
+  <footer class="footer" id="footer"></footer>
+
+  <!-- Search -->
+  <div class="layer search-layer" id="searchLayer" hidden>
+    <div class="search-panel">
+      <div class="wrap">
+        <form class="search-form" id="searchForm" role="search">
+          <svg><use href="#i-search"/></svg>
+          <input id="searchInput" type="search" autocomplete="off" />
+          <button type="button" class="icon-btn" data-close data-t-label="a11y.close"><svg><use href="#i-close"/></svg></button>
+        </form>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div class="layer" id="menuLayer" hidden>
+    <aside class="drawer drawer-left">
+      <div class="drawer-head">
+        <span class="logo"><span class="logo-mark" aria-hidden="true"></span><span id="menuLogo">Norge Rep</span></span>
+        <button class="icon-btn" data-close data-t-label="a11y.close"><svg><use href="#i-close"/></svg></button>
+      </div>
+      <nav class="menu-links" id="menuLinks"></nav>
+    </aside>
+  </div>
+
+  <!-- Bag -->
+  <div class="layer" id="bagLayer" hidden>
+    <aside class="drawer">
+      <div class="drawer-head">
+        <h2 class="drawer-title" data-t="bag.title">Handlekurv</h2>
+        <button class="icon-btn" data-close data-t-label="a11y.close"><svg><use href="#i-close"/></svg></button>
+      </div>
+      <div class="drawer-body" id="bagBody"></div>
+      <div class="drawer-foot" id="bagFoot"></div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
+      <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.5"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6l1-8z"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z"/></symbol>
+      <symbol id="i-truck" viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></symbol>
+      <symbol id="i-return" viewBox="0 0 24 24"><path d="M4 9h11a5 5 0 0 1 0 10H8"/><path d="M8 5L4 9l4 4"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M3 7l9 4 9-4M12 11v10"/></symbol>
+    </defs>
+  </svg>
+
+  <script src="js/i18n.js?v=1"></script>
+  <script src="js/fx.js?v=1"></script>
+  <script src="js/app.js?v=2"></script>
+  <script src="js/vendor/three.min.js" defer></script>
+  <script src="js/hero3d.js?v=1" defer></script>
+</body>
+</html>
