@@ -18,7 +18,7 @@
     },
     "images": {
       "story": "images/story.jpg",
-      "sell": "images/sell.jpg",
+      "banner": "images/banner.jpg",
       "about": "images/about.jpg"
     },
     "shipping": {
@@ -37,7 +37,12 @@
     "instagram": "",
     "tiktok": "",
     "about": "Grail House is a curated resale shop for people who care about quality. We hunt down standout sneakers, outerwear and accessories, inspect every single piece by hand, and only list what we'd be proud to own ourselves.\n\nResale keeps great pieces in circulation and out of landfill. Every purchase gives a well-made item a second life.",
-    "sellText": "Have something special? We buy and consign sneakers, outerwear, bags and accessories in great condition. Send us a few photos and we'll reply with an offer within 48 hours.",
+    "banner": {
+      "eyebrow": "Just landed",
+      "title": "New pieces, every week.",
+      "text": "Fresh finds land in the shop every week, and most are one of one. When they're gone, they're gone.",
+      "button": "Shop new arrivals"
+    },
     "faq": [
       {
         "q": "Are your items authentic?",

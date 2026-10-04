@@ -44,12 +44,12 @@ Your store updates about a minute after you publish.
 
 ## What the store includes
 
-- Homepage with banner, categories, new arrivals, featured items and a "sell with us" section
+- Homepage with banner, categories, new arrivals, featured items and a new-drops banner
 - Shop page with category, condition, size and stock filters, plus sorting
 - Product pages with a photo gallery, sizes, condition, stock and related items
 - Search, saved items with a heart button, and a shopping bag
 - Checkout with shipping options and discount codes
-- Sell with us, About, Contact, FAQ, Shipping, Returns, Privacy and Terms pages
+- About, Contact, FAQ, Shipping, Returns, Privacy and Terms pages
 - Works on phones, tablets and computers
 
 ## How orders work

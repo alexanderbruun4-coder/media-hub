@@ -247,6 +247,7 @@
     const newest = [...PRODUCTS].sort(byNewest).slice(0, 8);
     const featured = PRODUCTS.filter((p) => p.featured && !isSold(p)).slice(0, 4);
     const img = S.images || {};
+    const bn = S.banner || {};
     const sh = S.shipping || {};
     const catTiles = CATS.map((c) => {
       const list = PRODUCTS.filter((p) => p.category === c);
@@ -269,7 +270,7 @@
           ${h.text ? `<p>${esc(h.text)}</p>` : ""}
           <div class="hero-actions">
             <a class="btn btn-light" href="#/new">${esc(h.button || "Shop new arrivals")}</a>
-            <a class="btn btn-ghost-light" href="#/sell">Sell with us</a>
+            <a class="btn btn-ghost-light" href="#/shop">Shop all</a>
           </div>
         </div>
       </section>
@@ -323,12 +324,12 @@
       </section>` : ""}
 
       <section class="banner">
-        ${safeUrl(img.sell) ? `<img src="${esc(safeUrl(img.sell))}" alt="" loading="lazy" />` : ""}
+        ${safeUrl(img.banner) ? `<img src="${esc(safeUrl(img.banner))}" alt="" loading="lazy" />` : ""}
         <div class="wrap banner-inner reveal">
-          <p class="eyebrow">Sell or consign</p>
-          <h2 class="title-l">Turn your closet into cash.</h2>
-          <p>${esc(S.sellText || "")}</p>
-          <a class="btn btn-light" href="#/sell">Start selling</a>
+          ${bn.eyebrow ? `<p class="eyebrow">${esc(bn.eyebrow)}</p>` : ""}
+          <h2 class="title-l">${esc(bn.title || "New pieces, every week.")}</h2>
+          ${bn.text ? `<p>${esc(bn.text)}</p>` : ""}
+          <a class="btn btn-light" href="#/new">${esc(bn.button || "Shop new arrivals")}</a>
         </div>
       </section>
 
@@ -685,48 +686,6 @@
     };
   }
 
-  function pageSell() {
-    const img = safeUrl((S.images || {}).sell);
-    return {
-      title: `Sell with us | ${S.name}`,
-      html: `
-      <div class="wrap">
-        <div class="content-split">
-          <div>
-            <p class="eyebrow">Sell or consign</p>
-            <h1 class="title-l" style="margin:20px 0 24px">Sell with ${esc(S.name)}</h1>
-            <p class="lead">${esc(S.sellText || "")}</p>
-            <div class="steps">
-              <div class="step"><b>1. Submit</b><span>Tell us about your item and send a few photos.</span></div>
-              <div class="step"><b>2. Get an offer</b><span>We reply within 48 hours.</span></div>
-              <div class="step"><b>3. Get paid</b><span>Ship it to us and get paid fast.</span></div>
-            </div>
-            <form class="form" data-form="sell">
-              <div class="form-row">
-                <div class="field"><label for="s-name">Your name</label><input class="input" id="s-name" name="name" required /></div>
-                <div class="field"><label for="s-email">Email</label><input class="input" id="s-email" name="email" type="email" required /></div>
-              </div>
-              <div class="form-row">
-                <div class="field"><label for="s-item">Item</label><input class="input" id="s-item" name="item" placeholder="e.g. leather jacket" required /></div>
-                <div class="field"><label for="s-brand">Brand</label><input class="input" id="s-brand" name="brand" /></div>
-              </div>
-              <div class="form-row">
-                <div class="field"><label for="s-size">Size</label><input class="input" id="s-size" name="size" /></div>
-                <div class="field"><label for="s-cond">Condition</label>
-                  <select class="input" id="s-cond" name="condition"><option>New with tags</option><option>New</option><option>Like new</option><option>Excellent</option><option>Very good</option><option>Good</option></select></div>
-              </div>
-              <div class="field"><label for="s-price">Asking price <span class="muted">(optional)</span></label><input class="input" id="s-price" name="price" /></div>
-              <div class="field"><label for="s-msg">Anything else?</label><textarea class="input" id="s-msg" name="message" placeholder="Where you bought it, any wear, original box…"></textarea></div>
-              <button class="btn" type="submit">Send submission</button>
-              <p class="small muted">This opens your email app. Attach your photos before you press send.</p>
-            </form>
-          </div>
-          <div class="content-img" style="position:sticky;top:100px">${img ? `<img src="${esc(img)}" alt="" />` : ""}</div>
-        </div>
-      </div>`,
-    };
-  }
-
   function pageContact() {
     return {
       title: `Contact | ${S.name}`,
@@ -798,13 +757,12 @@
     $("#menuLogo").textContent = S.name;
     const topCats = CATS.slice(0, 4);
     $("#nav").innerHTML = [
-      ["#/new", "New in"], ["#/shop", "Shop all"], ...topCats.map((c) => [`#/shop/${slug(c)}`, c]), ["#/sell", "Sell"],
+      ["#/new", "New in"], ["#/shop", "Shop all"], ...topCats.map((c) => [`#/shop/${slug(c)}`, c]), ["#/about", "About"],
     ].map(([h, l]) => `<a href="${h}">${esc(l)}</a>`).join("");
     $("#menuLinks").innerHTML = `
       <a href="#/new" data-close-layers>New in</a>
       <a href="#/shop" data-close-layers>Shop all</a>
       ${CATS.map((c) => `<a class="menu-sub" href="#/shop/${slug(c)}" data-close-layers>${esc(c)}</a>`).join("")}
-      <a href="#/sell" data-close-layers>Sell with us</a>
       <a href="#/saved" data-close-layers>Saved items</a>
       <a href="#/about" data-close-layers>About</a>
       <a class="menu-sub" href="#/faq" data-close-layers>FAQ</a>
@@ -821,7 +779,7 @@
           </div>
           <div><h4>Shop</h4><ul><li><a href="#/new">New arrivals</a></li>${CATS.map((c) => `<li><a href="#/shop/${slug(c)}">${esc(c)}</a></li>`).join("")}</ul></div>
           <div><h4>Help</h4><ul><li><a href="#/faq">FAQ</a></li><li><a href="#/policy/shipping">Shipping</a></li><li><a href="#/policy/returns">Returns</a></li><li><a href="#/contact">Contact us</a></li></ul></div>
-          <div><h4>Company</h4><ul><li><a href="#/about">About</a></li><li><a href="#/sell">Sell with us</a></li><li><a href="#/policy/privacy">Privacy</a></li><li><a href="#/policy/terms">Terms</a></li></ul></div>
+          <div><h4>Company</h4><ul><li><a href="#/about">About</a></li><li><a href="#/policy/privacy">Privacy</a></li><li><a href="#/policy/terms">Terms</a></li></ul></div>
         </div>
         <div class="footer-bottom"><span>© ${new Date().getFullYear()} ${esc(S.name)}. All rights reserved.</span><span>${esc(S.email || "")}</span></div>
       </div>`;
@@ -861,7 +819,6 @@
       case "checkout": page = pageCheckout(); break;
       case "order": page = pageOrder(b); break;
       case "about": page = pageAbout(); break;
-      case "sell": page = pageSell(); break;
       case "contact": page = pageContact(); break;
       case "faq": page = pageFaq(); break;
       case "policy": page = pagePolicy(b); break;
@@ -976,12 +933,6 @@
     if (kind === "contact") {
       mailto(`Message from ${f.name}${f.order ? ` (order ${f.order})` : ""}`, `${f.message}\n\nFrom: ${f.name}\nEmail: ${f.email}${f.order ? `\nOrder: ${f.order}` : ""}`);
       return toast("Your email app opened. Press send to reach us.");
-    }
-    if (kind === "sell") {
-      mailto(`Sell submission: ${f.brand ? f.brand + " " : ""}${f.item}`, [
-        `Item: ${f.item}`, `Brand: ${f.brand || "-"}`, `Size: ${f.size || "-"}`, `Condition: ${f.condition}`, `Asking price: ${f.price || "-"}`, "", f.message || "", "", `From: ${f.name}`, `Email: ${f.email}`, "", "(Photos attached)",
-      ].join("\n"));
-      return toast("Your email app opened. Attach photos and press send.");
     }
   });
 

@@ -506,12 +506,14 @@
       <div class="card">
         <h2>Section photos</h2><p class="muted">Photos used in other parts of the store.</p>
         ${imageField("“Every piece, inspected” section", "settings.images.story")}
-        ${imageField("“Sell with us” banner and page", "settings.images.sell")}
+        ${imageField("Lower homepage banner", "settings.images.banner")}
         ${imageField("About page", "settings.images.about")}
       </div>
       <div class="card">
-        <h2>Sell with us</h2>
-        ${field("Text for sellers", "settings.sellText", { area: true, rows: 3 })}
+        <h2>Lower homepage banner</h2><p class="muted">The dark banner near the bottom of the homepage. Its button goes to New arrivals.</p>
+        <div class="grid2">${field("Small line above headline", "settings.banner.eyebrow")}${field("Button text", "settings.banner.button")}</div>
+        ${field("Headline", "settings.banner.title")}
+        ${field("Text", "settings.banner.text", { area: true, rows: 2 })}
       </div>`;
   }
 
