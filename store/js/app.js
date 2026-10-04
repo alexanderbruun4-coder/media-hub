@@ -88,6 +88,9 @@
         <button class="save-btn${saved ? " on" : ""}" data-save="${esc(p.id)}" aria-pressed="${saved}" aria-label="${saved ? "Remove from saved" : "Save"} ${esc(p.name)}">${icon("heart")}</button>
       </article>`;
   }
+  // Wraps each word so it can rise into place one after another.
+  const words = (s) => String(s || "").split(/\s+/).filter(Boolean)
+    .map((w, i) => `<span class="w"><span style="--d:${i}">${esc(w)}</span></span>`).join(" ");
   const grid = (list, cls = "") => `<div class="grid ${cls}">${list.map(card).join("")}</div>`;
 
   /* ---------------- saved items ---------------- */
@@ -118,8 +121,9 @@
     const line = bag.find((l) => l.id === id && l.size === size);
     if (line) line.qty++; else bag.push({ id, size, qty: 1 });
     saveBag();
-    bump($("#bagCount"));
-    openLayer("#bagLayer");
+    const open = () => { bump($("#bagCount")); openLayer("#bagLayer"); };
+    const img = $("#mainImg");
+    if (window.FX && img) window.FX.flyToBag(img, $("#bagBtn")).then(open); else open();
   }
   function setQty(i, qty) {
     const l = bag[i];
@@ -258,17 +262,27 @@
         </a>`;
     }).join("");
     const reviews = (S.reviews || []).filter((r) => r && r.text);
+    const live = PRODUCTS.filter((p) => !isSold(p) && imgs(p)[0]);
+    const heroPick = live.find((p) => p.featured) || live[0];
+    const vault = [...live.filter((p) => p.featured), ...[...live].sort(byNewest).filter((p) => !p.featured)].slice(0, 10);
 
     return {
       title: `${S.name} | ${S.tagline}`,
       html: `
-      <section class="hero">
-        ${safeUrl(h.image) ? `<img class="hero-img" src="${esc(safeUrl(h.image))}" alt="" />` : ""}
+      <section class="hero" data-hero>
+        <div class="hero-media">${safeUrl(h.image) ? `<img class="hero-img" src="${esc(safeUrl(h.image))}" alt="" />` : ""}</div>
+        ${heroPick ? `
+        <div class="hero-float-wrap">
+          <a class="hero-float" href="#/product/${enc(heroPick.id)}" aria-label="Featured: ${esc(heroPick.name)}">
+            <div class="hf-img"><img src="${esc(imgs(heroPick)[0])}" alt="" /></div>
+            <div class="hf-info"><span class="caps">Featured drop</span><strong>${esc(heroPick.name)}</strong><span>${money(heroPick.price)}</span></div>
+          </a>
+        </div>` : ""}
         <div class="wrap hero-inner">
-          ${h.eyebrow ? `<p class="eyebrow">${esc(h.eyebrow)}</p>` : ""}
-          <h1 class="title-xl">${esc(h.title || S.name)}</h1>
-          ${h.text ? `<p>${esc(h.text)}</p>` : ""}
-          <div class="hero-actions">
+          ${h.eyebrow ? `<p class="eyebrow hero-in" style="--d:0">${esc(h.eyebrow)}</p>` : ""}
+          <h1 class="title-xl words">${words(h.title || S.name)}</h1>
+          ${h.text ? `<p class="hero-in" style="--d:4">${esc(h.text)}</p>` : ""}
+          <div class="hero-actions hero-in" style="--d:5">
             <a class="btn btn-light" href="#/new">${esc(h.button || "Shop new arrivals")}</a>
             <a class="btn btn-ghost-light" href="#/shop">Shop all</a>
           </div>
@@ -285,10 +299,38 @@
       </section>
 
       ${CATS.length ? `
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee-track">${Array(4).fill(CATS.map((c) => `<span>${esc(c)}</span><i>✦</i>`).join("")).join("")}</div>
+      </div>` : ""}
+
+      ${CATS.length ? `
       <section class="section">
         <div class="wrap">
           <div class="head"><div><p class="eyebrow">Browse</p><h2 class="title-l">Shop by category</h2></div><a class="link" href="#/shop">Shop all ${icon("arrow")}</a></div>
           <div class="cats">${catTiles}</div>
+        </div>
+      </section>` : ""}
+
+      ${vault.length >= 5 ? `
+      <section class="vault">
+        <div class="wrap vault-head reveal">
+          <p class="eyebrow">The vault</p>
+          <h2 class="title-l">Spin through the collection.</h2>
+          <p>Drag or swipe to explore. Tap a piece to see it up close.</p>
+        </div>
+        <div class="ring-stage" data-ring>
+          <div class="ring">
+            ${vault.map((p) => `
+              <a class="ring-card" href="#/product/${enc(p.id)}" draggable="false">
+                <div class="ring-img"><img src="${esc(imgs(p)[0])}" alt="${esc(p.name)}" loading="lazy" draggable="false" /></div>
+                <div class="ring-info"><span>${esc(p.name)}</span><span>${money(p.price)}</span></div>
+              </a>`).join("")}
+          </div>
+          <div class="ring-floor"></div>
+        </div>
+        <div class="ring-controls">
+          <button class="ring-btn" data-ring-step="1" aria-label="Previous piece">${icon("arrow")}</button>
+          <button class="ring-btn" data-ring-step="-1" aria-label="Next piece">${icon("arrow")}</button>
         </div>
       </section>` : ""}
 
@@ -301,7 +343,7 @@
       </section>` : ""}
 
       <section class="split">
-        <div class="split-img">${safeUrl(img.story) ? `<img src="${esc(safeUrl(img.story))}" alt="" loading="lazy" />` : ""}</div>
+        <div class="split-img">${safeUrl(img.story) ? `<img src="${esc(safeUrl(img.story))}" alt="" loading="lazy" data-parallax="0.08" />` : ""}</div>
         <div class="split-text reveal">
           <p class="eyebrow">The ${esc(S.name)} standard</p>
           <h2 class="title-l">Every piece, inspected.</h2>
@@ -324,7 +366,7 @@
       </section>` : ""}
 
       <section class="banner">
-        ${safeUrl(img.banner) ? `<img src="${esc(safeUrl(img.banner))}" alt="" loading="lazy" />` : ""}
+        ${safeUrl(img.banner) ? `<img src="${esc(safeUrl(img.banner))}" alt="" loading="lazy" data-parallax="0.08" />` : ""}
         <div class="wrap banner-inner reveal">
           ${bn.eyebrow ? `<p class="eyebrow">${esc(bn.eyebrow)}</p>` : ""}
           <h2 class="title-l">${esc(bn.title || "New pieces, every week.")}</h2>
@@ -834,6 +876,7 @@
     $$(".nav a").forEach((l) => l.classList.toggle("active", l.getAttribute("href") === "#" + path));
     if (page.after) page.after();
     observeReveals();
+    if (window.FX) window.FX.mount(main);
   }
 
   function observeReveals() {
@@ -865,6 +908,7 @@
     if (el.dataset.thumb !== undefined) {
       const p = find(pd.id);
       $("#mainImg").src = imgs(p)[Number(el.dataset.thumb)];
+      if (window.FX) window.FX.swapIn($("#mainImg"));
       $$(".thumb").forEach((b) => b.classList.toggle("on", b === el));
       return;
     }
