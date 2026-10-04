@@ -238,7 +238,7 @@
   /* ================================================================
      APP
      ================================================================ */
-  const TABS = [["products", "Produkter"], ["settings", "Innstillinger"], ["discounts", "Rabattkoder"]];
+  const TABS = [["products", "Produkter"], ["reviews", "Anmeldelser"], ["settings", "Innstillinger"], ["discounts", "Rabattkoder"]];
   function renderApp() {
     app.innerHTML = `
       <header class="top" id="top"></header>
@@ -275,6 +275,7 @@
     else if (view === "edit") c.innerHTML = viewEditor();
     else if (view === "settings") c.innerHTML = viewSettings();
     else if (view === "discounts") c.innerHTML = viewDiscounts();
+    else if (view === "reviews") c.innerHTML = viewReviews();
     window.scrollTo(0, 0);
   }
 
@@ -444,7 +445,8 @@
     const v = getPath(data, path);
     const id = "f-" + path.replace(/\W/g, "-");
     const attrs = `id="${id}" data-bind="${path}" ${opts.type === "number" ? 'data-type="number" type="number" min="0" step="1"' : opts.type ? `type="${opts.type}"` : ""} placeholder="${esc(opts.placeholder || "")}"`;
-    return `<div class="field"><label for="${id}">${label}</label><input class="input" ${attrs} value="${esc(v ?? "")}" />${opts.hint ? `<span class="hint">${opts.hint}</span>` : ""}</div>`;
+    const input = opts.area ? `<textarea class="input" ${attrs} rows="${opts.rows || 3}">${esc(v ?? "")}</textarea>` : `<input class="input" ${attrs} value="${esc(v ?? "")}" />`;
+    return `<div class="field"><label for="${id}">${label}</label>${input}${opts.hint ? `<span class="hint">${opts.hint}</span>` : ""}</div>`;
   }
   function viewSettings() {
     return `
@@ -479,6 +481,26 @@
             <button type="button" class="btn btn-sm btn-danger" data-rm="discounts" data-i="${i}">Fjern</button>
           </div>`).join("") || `<p class="muted">Ingen koder enda.</p>`}
         <button type="button" class="btn" data-add="discounts">${ic.plus} Legg til kode</button>
+      </div>`;
+  }
+
+  function viewReviews() {
+    const r = data.settings.reviews || [];
+    return `
+      <div class="page-title"><h1>Anmeldelser</h1></div>
+      <div class="note">Legg bare inn ekte anmeldelser fra ekte kunder, og bare hvis de har sagt ja til at den kan vises. Falske anmeldelser er ulovlige i Norge. Kundene kan sende deg anmeldelser fra siden «Skriv en anmeldelse».</div>
+      <div class="card">
+        <h2>Kundeanmeldelser</h2>
+        <p class="muted">Vises på forsiden med snittkarakter så snart du har lagt inn én. Den engelske teksten er valgfri.</p>
+        ${r.map((x, i) => `
+          <div class="rep">
+            <button type="button" class="btn btn-sm btn-danger remove" data-rm="reviews" data-i="${i}">Fjern</button>
+            <div class="grid3">${field("Kundens fornavn", `settings.reviews.${i}.name`)}${field("Stjerner (1–5)", `settings.reviews.${i}.rating`, { type: "number" })}${field("Vare (valgfritt)", `settings.reviews.${i}.product`)}</div>
+            ${field("Anmeldelse (norsk)", `settings.reviews.${i}.text`, { area: true })}
+            ${field("Anmeldelse (engelsk, valgfritt)", `settings.reviews.${i}.textEn`, { area: true })}
+          </div>`).join("") || `<p class="muted">Ingen anmeldelser enda.</p>`}
+        <button type="button" class="btn" data-add="reviews">${ic.plus} Legg til anmeldelse</button>
+        <p class="small muted" style="margin-top:14px"><a href="./#/review" target="_blank" rel="noopener">Åpne «Skriv en anmeldelse»-siden</a> for å dele lenken med kundene dine.</p>
       </div>`;
   }
 
@@ -640,11 +662,13 @@
       [editing.images[i], editing.images[j]] = [editing.images[j], editing.images[i]];
       return refreshPhotos();
     }
-    if (el.dataset.add === "discounts") {
-      data.settings.discounts = [...(data.settings.discounts || []), { code: "", percent: 10 }];
+    if (el.dataset.add) {
+      const key = el.dataset.add;
+      const blank = { discounts: { code: "", percent: 10 }, reviews: { name: "", rating: 5, product: "", text: "", textEn: "" } }[key];
+      data.settings[key] = [...(data.settings[key] || []), blank];
       saveWork(); renderView();
-      const f = $(`[data-bind="settings.discounts.${data.settings.discounts.length - 1}.code"]`);
-      if (f) f.focus();
+      const f = $(`[data-bind^="settings.${key}.${data.settings[key].length - 1}."]`);
+      if (f) { f.focus(); f.scrollIntoView({ block: "center" }); }
       return;
     }
     if (el.dataset.rm) { data.settings[el.dataset.rm].splice(Number(el.dataset.i), 1); saveWork(); return renderView(); }

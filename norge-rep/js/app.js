@@ -120,6 +120,9 @@
         <button class="save-btn${sv ? " on" : ""}" data-save="${esc(p.id)}" aria-pressed="${sv}" aria-label="${sv ? t("unsave") : t("save")}: ${esc(pName(p))}">${icon("heart")}</button>
       </article>`;
   }
+  const stars = (n) => `<span class="stars" role="img" aria-label="${t("rw.star", { n })}">${[1, 2, 3, 4, 5].map((i) => `<svg class="${i <= n ? "on" : ""}" aria-hidden="true"><use href="#i-star"/></svg>`).join("")}</span>`;
+  const realReviews = () => (S.reviews || []).filter((r) => r && (r.text || r.textEn) && r.name);
+  const rvText = (r) => (LANG === "en" && r.textEn) || r.text || r.textEn;
   const grid = (list) => `<div class="grid">${list.map(card).join("")}</div>`;
   function emptyState() {
     return `
@@ -308,6 +311,29 @@
 
       <section class="section" style="padding-top:0">
         <div class="wrap">
+          <div class="quality reveal">
+            <div class="seal" aria-hidden="true">
+              <div class="coin">
+                <div class="face front"><span>${t("q.seal1")}</span><b>${icon("check")}</b><span>${t("q.seal2")}</span></div>
+                <div class="face back"><span>${esc(S.name)}</span><b>${icon("spark")}</b><span>${t("q.seal1")}</span></div>
+              </div>
+            </div>
+            <div>
+              <p class="eyebrow">${t("q.eyebrow")}</p>
+              <h2 class="title-l">${t("q.title")}</h2>
+              <p>${t("q.text")}</p>
+              <ul class="promise">
+                <li>${icon("check")} ${t("q.p1")}</li>
+                <li>${icon("return")} ${t("q.p2")}</li>
+                <li>${icon("bolt")} ${t("q.p3")}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top:0">
+        <div class="wrap">
           <div class="head"><div><p class="eyebrow">${t("home.products.eyebrow")}</p><h2 class="title-l">${t("home.products.title")}</h2></div>
             ${PRODUCTS.length ? `<a class="link" href="#/shop"><span>${t("home.viewAll")}</span> ${icon("arrow")}</a>` : ""}</div>
           ${PRODUCTS.length ? grid(newest) : emptyState()}
@@ -332,6 +358,8 @@
         </div>
       </section>` : ""}
 
+      ${reviewsHtml()}
+
       <section class="section" style="padding-top:${vault.length >= 5 ? "40px" : "0"}">
         <div class="wrap">
           <div class="cta-band reveal">
@@ -345,6 +373,69 @@
           </div>
         </div>
       </section>`,
+    };
+  }
+
+  function reviewsHtml() {
+    const list = realReviews();
+    if (!list.length) {
+      return `
+      <section class="section" style="padding-top:0">
+        <div class="wrap"><div class="review-cta reveal">${stars(5)}<p>${t("rv.cta")}</p><a class="btn btn-ghost" href="#/review">${t("rv.write")} ${icon("arrow")}</a></div></div>
+      </section>`;
+    }
+    const avg = list.reduce((s, r) => s + Math.max(1, Math.min(5, Number(r.rating) || 5)), 0) / list.length;
+    const avgTxt = avg.toLocaleString(LANG === "no" ? "nb-NO" : "en-US", { maximumFractionDigits: 1 });
+    return `
+      <section class="section" style="padding-top:0">
+        <div class="wrap">
+          <div class="head">
+            <div><p class="eyebrow">${t("rv.eyebrow")}</p><h2 class="title-l">${t("rv.title")}</h2>
+              <div class="rv-avg">${stars(Math.round(avg))}<span>${t(list.length === 1 ? "rv.avg1" : "rv.avg", { avg: avgTxt, n: list.length })}</span></div></div>
+            <a class="link" href="#/review"><span>${t("rv.write")}</span> ${icon("arrow")}</a>
+          </div>
+          <div class="reviews">
+            ${list.slice(0, 9).map((r) => `
+              <figure class="review feature reveal">
+                ${stars(Math.max(1, Math.min(5, Number(r.rating) || 5)))}
+                <blockquote>“${esc(rvText(r))}”</blockquote>
+                <figcaption><span class="rv-av">${esc(String(r.name).trim().charAt(0).toUpperCase())}</span><span><b>${esc(r.name)}</b><small>${t("rv.verified")}${r.product ? ` · ${esc(r.product)}` : ""}</small></span></figcaption>
+              </figure>`).join("")}
+          </div>
+        </div>
+      </section>`;
+  }
+
+  function pageReview() {
+    const opt = `<span class="muted">${t("co.optional")}</span>`;
+    return {
+      title: `${t("rw.title")} | ${S.name}`,
+      html: `
+      <div class="wrap">
+        <div class="content-split">
+          <div>
+            <p class="eyebrow">${t("rv.eyebrow")}</p>
+            <h1 class="title-l" style="margin:18px 0 22px">${t("rw.title")}</h1>
+            <p class="lead">${t("rw.lead")}</p>
+          </div>
+          <form class="form glass-card" data-form="review">
+            <fieldset class="rate">
+              <legend class="field-label">${t("rw.rating")}</legend>
+              <div class="rate-stars">
+                ${[5, 4, 3, 2, 1].map((n) => `<input type="radio" id="rate-${n}" name="rating" value="${n}" ${n === 5 ? "checked" : ""} /><label for="rate-${n}" title="${t("rw.star", { n })}"><svg aria-hidden="true"><use href="#i-star"/></svg><span class="sr">${t("rw.star", { n })}</span></label>`).join("")}
+              </div>
+            </fieldset>
+            <div class="form-row">
+              <div class="field"><label for="w-name">${t("rw.name")}</label><input class="input" id="w-name" name="name" required autocomplete="given-name" placeholder="${t("rw.nameHint")}" /></div>
+              <div class="field"><label for="w-order">${t("rw.order")} ${opt}</label><input class="input" id="w-order" name="order" /></div>
+            </div>
+            <div class="field"><label for="w-product">${t("rw.product")} ${opt}</label><input class="input" id="w-product" name="product" /></div>
+            <div class="field"><label for="w-text">${t("rw.text")}</label><textarea class="input" id="w-text" name="text" required rows="5"></textarea></div>
+            <label class="check"><input type="checkbox" name="consent" required /> <span>${t("rw.consent")}</span></label>
+            <button class="btn btn-block" type="submit">${t("rw.send")} ${icon("arrow")}</button>
+          </form>
+        </div>
+      </div>`,
     };
   }
 
@@ -746,7 +837,8 @@
       <a href="#/saved" data-close-layers>${t("nav.saved")}</a>
       <a href="#/about" data-close-layers>${t("nav.about")}</a>
       <a class="menu-sub" href="#/faq" data-close-layers>${t("nav.faq")}</a>
-      <a class="menu-sub" href="#/contact" data-close-layers>${t("nav.contact")}</a>`;
+      <a class="menu-sub" href="#/contact" data-close-layers>${t("nav.contact")}</a>
+      <a class="menu-sub" href="#/review" data-close-layers>${t("nav.review")}</a>`;
     const socials = [["Instagram", S.instagram], ["TikTok", S.tiktok], ["Snapchat", S.snapchat]].filter(([, u]) => safeUrl(u));
     $("#footer").innerHTML = `
       <div class="wrap">
@@ -756,7 +848,7 @@
             <p>${t("ft.tag")}</p>
             ${socials.length ? `<div class="socials">${socials.map(([l, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener" class="caps">${l}</a>`).join("")}</div>` : ""}
           </div>
-          <div><h4>${t("ft.shop")}</h4><ul><li><a href="#/shop">${t("ft.all")}</a></li><li><a href="#/new">${t("nav.new")}</a></li>${CATS.slice(0, 5).map((c) => `<li><a href="#/shop/${slug(c)}">${esc(catLabel(c))}</a></li>`).join("")}<li><a href="#/request">${t("nav.request")}</a></li></ul></div>
+          <div><h4>${t("ft.shop")}</h4><ul><li><a href="#/shop">${t("ft.all")}</a></li><li><a href="#/new">${t("nav.new")}</a></li>${CATS.slice(0, 5).map((c) => `<li><a href="#/shop/${slug(c)}">${esc(catLabel(c))}</a></li>`).join("")}<li><a href="#/request">${t("nav.request")}</a></li><li><a href="#/review">${t("nav.review")}</a></li></ul></div>
           <div><h4>${t("ft.help")}</h4><ul><li><a href="#/faq">${t("nav.faq")}</a></li><li><a href="#/policy/shipping">${t("pol.shipping")}</a></li><li><a href="#/policy/returns">${t("pol.returns")}</a></li><li><a href="#/contact">${t("nav.contact")}</a></li></ul></div>
           <div><h4>${t("ft.info")}</h4><ul><li><a href="#/about">${t("nav.about")}</a></li><li><a href="#/policy/privacy">${t("pol.privacy")}</a></li><li><a href="#/policy/terms">${t("pol.terms")}</a></li></ul></div>
         </div>
@@ -796,6 +888,7 @@
       case "checkout": page = pageCheckout(); break;
       case "order": page = pageOrder(b); break;
       case "request": page = pageRequest(); break;
+      case "review": page = pageReview(); break;
       case "about": page = pageAbout(); break;
       case "contact": page = pageContact(); break;
       case "faq": page = pageFaq(); break;
@@ -904,6 +997,16 @@
         f.budget ? `${t("rq.budget")}: ${f.budget}` : null, f.more ? `\n${f.more}` : null, "", `${t("rq.name")}: ${f.name}`, `${t("rq.email")}: ${f.email}`,
       ].filter((x) => x !== null).join("\n"));
       return toast(t("rq.sent"));
+    }
+    if (kind === "review") {
+      mailto(t("rw.subject", { stars: f.rating, name: f.name }), [
+        `${t("rw.rating")} ${"★".repeat(Number(f.rating))}${"☆".repeat(5 - Number(f.rating))} (${f.rating}/5)`,
+        f.product ? `${t("rw.product")} ${f.product}` : null,
+        f.order ? `${t("rw.order")}: ${f.order}` : null,
+        "", f.text, "", `${t("rw.name")}: ${f.name}`, `✓ ${t("rw.consent")}`,
+      ].filter((x) => x !== null).join("\n"));
+      form.reset();
+      return toast(t("rw.sent"));
     }
     if (kind === "contact") {
       mailto(t("ct.subject", { name: f.name }) + (f.order ? ` (${f.order})` : ""), `${f.message}\n\n${t("ct.name")}: ${f.name}\n${t("ct.email")}: ${f.email}${f.order ? `\n${t("ct.order")}: ${f.order}` : ""}`);
