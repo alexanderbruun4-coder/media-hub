@@ -50,7 +50,11 @@ Your store updates about a minute after you publish.
 - Search, saved items with a heart button, and a shopping bag
 - Checkout with shipping options and discount codes
 - About, Contact, FAQ, Shipping, Returns, Privacy and Terms pages
-- Works on phones, tablets and computers
+- 3D effects: product cards that tilt toward your mouse, a spinning 3D "vault" of
+  products you can drag, a floating featured-item card, scroll depth on photos, and
+  photos that fly into the bag
+- Works on phones, tablets and computers. Motion turns off for people who set their
+  device to reduce motion.
 
 ## How orders work
 
