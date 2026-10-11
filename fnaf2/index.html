@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Night Shift 2 — FNAF 2 Fan Remake | Fliqora</title>
+  <meta name="description" content="A fan-made, browser-playable tribute to Five Nights at Freddy's 2: no doors, just a mask, a flashlight, twelve cameras and a music box that must never stop." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "VT323", "Courier New", monospace;
+    }
+    canvas {
+      display: block;
+      background: #000;
+      image-rendering: auto;
+      cursor: crosshair;
+    }
+    .back {
+      position: fixed;
+      top: 10px;
+      left: 12px;
+      color: #8a8a8a;
+      font-size: 20px;
+      text-decoration: none;
+      z-index: 2;
+    }
+    .back:hover { color: #fff; }
+    body:not([data-screen="title"]) .back { display: none; }
+  </style>
+</head>
+<body data-screen="title">
+  <a class="back" href="../index.html">&larr; Fliqora</a>
+  <canvas id="game" width="1280" height="720" aria-label="Night Shift 2 game"></canvas>
+  <script src="game.js?v=2"></script>
+</body>
+</html>
